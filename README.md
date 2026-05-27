@@ -6,8 +6,7 @@ API keys. Natural-language journaling powered by an LLM.
 
 ![Demo](./assets/demo.gif)
 
-> **Try it without an account** → [wealth-tracker.example.com/demo](#) ·
-> _(replace with your live URL after deploy)_
+> **Try it without an account** → [**wealth-tracker-liart.vercel.app/demo**](https://wealth-tracker-liart.vercel.app/demo)
 
 Built as a personal tool and as a portfolio piece. The UI is in Spanish — the
 underlying code, schema and docs are in English.
