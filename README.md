@@ -6,10 +6,23 @@ API keys. Natural-language journaling powered by an LLM.
 
 ![Demo](./assets/demo.gif)
 
-> **Try it without an account** → [**wealth-tracker-liart.vercel.app/demo**](https://wealth-tracker-liart.vercel.app/demo)
-
 Built as a personal tool and as a portfolio piece. The UI is in Spanish — the
 underlying code, schema and docs are in English.
+
+## Three ways to use it
+
+- 🧪 **Public demo (no signup)** → [**wealth-tracker-liart.vercel.app/demo**](https://wealth-tracker-liart.vercel.app/demo)
+  Fictitious data, real prices. All interactions work — nothing persists. No
+  account required.
+
+- 🟢 **Hosted instance with your own data** → [**wealth-tracker-liart.vercel.app**](https://wealth-tracker-liart.vercel.app)
+  Sign in with a magic link to your email. Your rows live in this project's
+  Supabase, isolated from every other user via row-level security (see
+  [Security model](#security-model) — and especially the trust trade-off if
+  you use my deployment instead of your own).
+
+- 🛠️ **Self-host** → fork this repo and follow [Self-host](#self-host-5-minutes)
+  below. Full data sovereignty: your Supabase, your Vercel, your control.
 
 ---
 
@@ -189,8 +202,23 @@ no SQL required.
   and the public price feeds, nothing else.
 - **Your data lives in your Supabase project.** This repo is just the UI.
 
-If you fork and self-host, you control the database. If you use someone
-else's deployment, you're trusting their Supabase.
+### Using the hosted instance
+
+If you use [wealth-tracker-liart.vercel.app](https://wealth-tracker-liart.vercel.app)
+instead of self-hosting, be aware of the trade-off:
+
+- **Your rows are isolated from other users.** Row-level security blocks
+  other accounts from reading or writing your data through the app.
+- **The project owner (me) has full DB access** as the Supabase admin. I
+  don't read your data, but I technically could. Same situation as any
+  hosted SaaS.
+- **If I stop paying or get bored**, the deployment can go down. You'd lose
+  access (your data still exists in the DB, but no UI to it).
+- **No SLA, no support, no backups guaranteed.** It's a portfolio
+  deployment, not a product.
+
+If any of that bothers you, self-host. The five-minute guide above gives you
+your own Supabase and your own Vercel, and the app behaves identically.
 
 ---
 
