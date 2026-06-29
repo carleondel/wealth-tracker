@@ -41,7 +41,7 @@ export function Header({
           <span className="text-[10px] uppercase tracking-widest text-[var(--muted)]">
             Patrimonio total
           </span>
-          <span className="text-4xl sm:text-5xl font-semibold tabular-nums leading-none mt-1">
+          <span className="text-3xl font-semibold tabular-nums leading-none mt-1">
             {fmtEur(totalEur)}
           </span>
         </div>
