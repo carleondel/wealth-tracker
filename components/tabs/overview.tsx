@@ -1,7 +1,14 @@
 "use client";
 
 import { useState } from "react";
-import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from "recharts";
+import {
+  Cell,
+  Label,
+  Pie,
+  PieChart,
+  ResponsiveContainer,
+  Tooltip,
+} from "recharts";
 import { Card, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
@@ -72,21 +79,60 @@ export function OverviewTab({
       <Card className="lg:col-span-2">
         <CardTitle>Distribución por categoría</CardTitle>
         <div className="mt-4 grid grid-cols-1 sm:grid-cols-[1fr,1fr] gap-6 items-center">
-          <div className="h-56">
+          <div className="h-56 relative">
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
                 <Pie
                   data={donutData}
                   dataKey="value"
                   nameKey="name"
-                  innerRadius={60}
-                  outerRadius={90}
+                  innerRadius={62}
+                  outerRadius={92}
                   stroke="var(--surface)"
                   strokeWidth={2}
                 >
                   {donutData.map((d) => (
                     <Cell key={d.name} fill={d.color} />
                   ))}
+                  <Label
+                    position="center"
+                    content={({ viewBox }) => {
+                      if (!viewBox || !("cx" in viewBox)) return null;
+                      const { cx, cy } = viewBox as { cx: number; cy: number };
+                      return (
+                        <g>
+                          <text
+                            x={cx}
+                            y={cy - 8}
+                            textAnchor="middle"
+                            className="fill-[var(--muted)]"
+                            style={{
+                              fontSize: 10,
+                              letterSpacing: "0.1em",
+                              textTransform: "uppercase",
+                              fontFamily: "var(--font-mono)",
+                            }}
+                          >
+                            Total
+                          </text>
+                          <text
+                            x={cx}
+                            y={cy + 12}
+                            textAnchor="middle"
+                            className="fill-[var(--foreground)]"
+                            style={{
+                              fontSize: 16,
+                              fontWeight: 600,
+                              fontFamily: "var(--font-mono)",
+                              fontVariantNumeric: "tabular-nums",
+                            }}
+                          >
+                            {fmtEur(totalEur)}
+                          </text>
+                        </g>
+                      );
+                    }}
+                  />
                 </Pie>
                 <Tooltip
                   contentStyle={{
@@ -196,11 +242,11 @@ function PnLCard({
   if (snapshots.length < 2) {
     return (
       <Card>
-        <CardTitle>P&L</CardTitle>
+        <CardTitle>P&L · mercado</CardTitle>
         <div className="mt-3 text-sm text-[var(--muted)]">
-          Necesitas al menos 2 snapshots para ver la evolución. Pulsa{" "}
+          Necesitas al menos 2 snapshots. Pulsa{" "}
           <strong className="text-[var(--foreground)]">Update</strong> en
-          distintos momentos (días, semanas) para acumular historia.
+          distintos momentos para acumular historia.
         </div>
       </Card>
     );
@@ -213,14 +259,14 @@ function PnLCard({
 
   return (
     <Card>
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-3">
-        <CardTitle>P&L (puro de mercado)</CardTitle>
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <CardTitle>P&L · mercado</CardTitle>
         <div className="flex gap-1 flex-wrap">
           {RANGES.map((r) => (
             <button
               key={r}
               onClick={() => setRange(r)}
-              className={`px-2.5 py-1 text-[10px] uppercase tracking-wider rounded transition-colors ${
+              className={`px-2 py-0.5 text-[10px] uppercase tracking-wider rounded transition-colors ${
                 range === r
                   ? "bg-[var(--surface-2)] text-[var(--foreground)]"
                   : "text-[var(--muted)] hover:text-[var(--foreground)]"
@@ -233,7 +279,7 @@ function PnLCard({
       </div>
 
       {result ? (
-        <div>
+        <div className="mt-4">
           <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1">
             <div className={`text-3xl font-semibold tabular-nums ${color}`}>
               {sign}
@@ -243,46 +289,27 @@ function PnLCard({
               {fmtPct(result.marketPct)}
             </div>
           </div>
-          <div className="mt-2 grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs text-[var(--muted)]">
-            <div>
-              <div className="uppercase tracking-wider text-[10px]">
-                Aportaciones del periodo
-              </div>
-              <div className="text-[var(--foreground)] tabular-nums mt-0.5">
-                {result.contributionsTotal >= 0 ? "+" : ""}
-                {fmtEur(result.contributionsTotal)}
-              </div>
-            </div>
-            <div>
-              <div className="uppercase tracking-wider text-[10px]">
-                Cambio neto (con aportaciones)
-              </div>
-              <div
-                className={`tabular-nums mt-0.5 ${
-                  result.netDelta >= 0
-                    ? "text-[var(--accent)]"
-                    : "text-[var(--danger)]"
-                }`}
-              >
-                {result.netDelta >= 0 ? "+" : ""}
-                {fmtEur(result.netDelta)} · {fmtPct(result.netPct)}
-              </div>
-            </div>
-            <div>
-              <div className="uppercase tracking-wider text-[10px]">
-                Baseline → actual
-              </div>
-              <div className="text-[var(--foreground)] tabular-nums mt-0.5">
-                {fmtEur(result.baseline)} → {fmtEur(currentTotal)}
-              </div>
-              <div className="text-[10px] mt-0.5">
-                desde {fmtDate(result.fromIso)}
-              </div>
-            </div>
+          <div className="mt-2 text-xs text-[var(--muted)]">
+            desde {fmtDate(result.fromIso)} · neto{" "}
+            <span className="tabular-nums">
+              {result.netDelta >= 0 ? "+" : ""}
+              {fmtEur(result.netDelta)}
+            </span>
+            {Math.abs(result.contributionsTotal) > 0.5 ? (
+              <>
+                {" "}
+                (incluye{" "}
+                <span className="tabular-nums">
+                  {result.contributionsTotal >= 0 ? "+" : ""}
+                  {fmtEur(result.contributionsTotal)}
+                </span>{" "}
+                aportaciones)
+              </>
+            ) : null}
           </div>
         </div>
       ) : (
-        <div className="text-sm text-[var(--muted)]">
+        <div className="mt-4 text-sm text-[var(--muted)]">
           Sin datos en este rango.
         </div>
       )}
