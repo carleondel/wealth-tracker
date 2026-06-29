@@ -43,8 +43,9 @@ template or from scratch.
 
 - 🔒 **Multi-tenant magic-link auth.** Each user only sees their own rows
   (Postgres RLS scoped to `auth.uid()`). No passwords, no signup form.
-- 📈 **Live prices, zero API keys.** CoinGecko (crypto), Stooq (US stocks),
-  Frankfurter ECB rates (USD↔EUR). All free public endpoints.
+- 📈 **Live prices from free APIs.** CoinGecko (crypto) and Frankfurter ECB
+  rates (USD↔EUR) work with no key. Finnhub (US stocks) needs a free key —
+  signup is 30 seconds at [finnhub.io](https://finnhub.io).
 - 🧠 **Natural-language Journal.** Type _"sold 3 MSTR at 180, contributed 200
   to savings from payroll"_ → the app parses it into structured operations
   you can review and apply.
@@ -112,7 +113,7 @@ hits the DB without your explicit confirmation.
 - **DB & auth:** Supabase (Postgres + Auth magic link)
 - **Charts:** Recharts
 - **Icons:** Lucide
-- **Prices:** CoinGecko · Stooq · Frankfurter (no API keys)
+- **Prices:** CoinGecko (crypto, no key) · Finnhub (stocks, free key) · Frankfurter (FX, no key)
 - **LLM (optional):** NVIDIA NIM hosted inference (Llama 3.3 70B)
 - **Hosting:** Vercel (zero-config deploy from this repo)
 
@@ -152,6 +153,8 @@ Fill in:
 - `NEXT_PUBLIC_SUPABASE_URL`
 - `NEXT_PUBLIC_SUPABASE_ANON_KEY` (the `publishable` key works; the legacy
   JWT anon key also works)
+- `FINNHUB_API_KEY` *(needed for US stock prices.
+  [Get one free in 30s](https://finnhub.io) — free tier covers 60 req/min)*
 - `NVIDIA_API_KEY` *(optional — only the Journal tab needs it.
   [Get one free](https://build.nvidia.com))*
 
