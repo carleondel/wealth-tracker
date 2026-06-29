@@ -42,41 +42,43 @@ async function fetchCrypto(tickers: string[]): Promise<PriceMap> {
   return out;
 }
 
-async function fetchStockStooq(
+async function fetchStockFinnhub(
   ticker: string,
+  apiKey: string,
 ): Promise<{ price: number; change: number }> {
-  const sym = `${ticker.toLowerCase()}.us`;
-  const url = `https://stooq.com/q/l/?s=${encodeURIComponent(
-    sym,
-  )}&f=sd2t2ohlcv&h&e=csv`;
+  const url = `https://finnhub.io/api/v1/quote?symbol=${encodeURIComponent(
+    ticker,
+  )}&token=${encodeURIComponent(apiKey)}`;
   const res = await fetch(url, { cache: "no-store" });
-  if (!res.ok) throw new Error(`Stooq HTTP ${res.status}`);
-  const text = await res.text();
-  const lines = text.trim().split("\n");
-  if (lines.length < 2) throw new Error("Stooq empty");
-  const header = lines[0].toLowerCase().split(",");
-  const closeIdx = header.indexOf("close");
-  const openIdx = header.indexOf("open");
-  if (closeIdx === -1) throw new Error("Stooq header mismatch");
-  const cols = lines[1].split(",");
-  const closeRaw = cols[closeIdx];
-  if (!closeRaw || closeRaw === "N/D") throw new Error("Stooq no data");
-  const close = Number(closeRaw);
-  if (!Number.isFinite(close) || close === 0) throw new Error("Stooq bad close");
-  const open = Number(cols[openIdx]);
-  const change =
-    Number.isFinite(open) && open > 0 ? ((close - open) / open) * 100 : 0;
-  return { price: close, change };
+  if (!res.ok) throw new Error(`Finnhub HTTP ${res.status}`);
+  const data = (await res.json()) as {
+    c?: number; // current
+    dp?: number; // daily percent change
+    pc?: number; // previous close
+  };
+  const price = data.c;
+  if (price == null || price === 0) throw new Error("Finnhub no price");
+  const change = data.dp ?? 0;
+  return { price, change };
 }
 
-async function fetchStocksStooq(
+async function fetchStocks(
   tickers: string[],
 ): Promise<{ prices: PriceMap; errors: string[] }> {
   const prices: PriceMap = {};
   const errors: string[] = [];
   if (tickers.length === 0) return { prices, errors };
+
+  const apiKey = process.env.FINNHUB_API_KEY;
+  if (!apiKey) {
+    errors.push(
+      `FINNHUB_API_KEY not set — stock prices unavailable. Get a free key at https://finnhub.io and add it to your env vars.`,
+    );
+    return { prices, errors };
+  }
+
   const results = await Promise.allSettled(
-    tickers.map(async (t) => [t, await fetchStockStooq(t)] as const),
+    tickers.map(async (t) => [t, await fetchStockFinnhub(t, apiKey)] as const),
   );
   for (const r of results) {
     if (r.status === "fulfilled") {
@@ -127,7 +129,7 @@ export async function GET(request: Request) {
 
   const [cryptoRes, stockRes, fxRes] = await Promise.allSettled([
     fetchCrypto(cryptoTickers),
-    fetchStocksStooq(stockTickers),
+    fetchStocks(stockTickers),
     fetchUsdEur(),
   ]);
 
@@ -147,7 +149,7 @@ export async function GET(request: Request) {
     if (!prices[t]) errors.push(`${t}: missing in CoinGecko`);
   }
   for (const t of stockTickers) {
-    if (!prices[t]) errors.push(`${t}: missing in Stooq`);
+    if (!prices[t]) errors.push(`${t}: missing in Finnhub`);
   }
 
   let usdEur = 0.92;

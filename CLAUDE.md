@@ -10,7 +10,7 @@ their own data. Includes a public `/demo` route backed by fake in-memory data.
 - Tailwind CSS v4
 - Supabase (Postgres + Auth magic link) via `@supabase/supabase-js`
 - Recharts (charts) + Lucide (icons)
-- Prices: free public APIs, no keys — CoinGecko (crypto), Stooq (US stocks),
+- Prices: free public APIs, no keys — CoinGecko (crypto), Finnhub (US stocks),
   Frankfurter (USD/EUR)
 - LLM: NVIDIA NIM hosted API (Llama 3.3 70B) for the natural-language Journal
 
@@ -71,7 +71,7 @@ Tables (all rows gated by `owner_id = auth.uid()`):
 - Prices are **never** auto-fetched on page load.
 - User clicks `UPDATE` → `/api/prices?tickers=…` → parallel fan-out to:
   - CoinGecko `simple/price?include_24hr_change=true` for crypto (BTC-USD, SOL-USD, XRP-USD, USDC-USD…).
-  - Stooq single-symbol CSV per US stock ticker (`...q/l/?s=<ticker>.us&f=sd2t2ohlcv&h&e=csv`). Intraday % change derived from `(close − open) / open`.
+  - Finnhub single-symbol CSV per US stock ticker (`...q/l/?s=<ticker>.us&f=sd2t2ohlcv&h&e=csv`). Intraday % change derived from `(close − open) / open`.
   - Frankfurter (ECB reference) for USD→EUR.
 - USDC and USDT are pinned to 1. Partial failures land in `errors[]` and
   surface as a banner; working tickers still save a snapshot.
@@ -90,7 +90,7 @@ app/
   layout.tsx
   page.tsx                   # auth gate (login vs dashboard)
   demo/page.tsx              # public demo, demoMode=true
-  api/prices/route.ts        # CoinGecko + Stooq + Frankfurter aggregator
+  api/prices/route.ts        # CoinGecko + Finnhub + Frankfurter aggregator
   api/journal/route.ts       # NVIDIA NIM parser → structured ops
 components/
   dashboard.tsx              # all state + handlers (branches on demoMode)
