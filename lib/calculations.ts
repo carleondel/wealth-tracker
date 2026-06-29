@@ -2,9 +2,11 @@ import { CATEGORY_TARGETS, POLICY } from "./policy";
 import type {
   Breakdown,
   Category,
+  Contribution,
   ManualAsset,
   Position,
   PriceMap,
+  Snapshot,
 } from "./types";
 
 /**
@@ -151,6 +153,89 @@ export function getAccruedInterest(
   const days = Math.max(0, ms / (1000 * 60 * 60 * 24));
   const accruedEur = (asset.value_eur * asset.interest_rate_annual * days) / 365;
   return { days, accruedEur };
+}
+
+export type PnLRange = "1D" | "7D" | "30D" | "90D" | "YTD" | "1Y" | "ALL";
+
+export interface PnLResult {
+  baseline: number;
+  /** Pure market move: net change minus contributions logged in the period. */
+  marketDelta: number;
+  marketPct: number;
+  /** Net change in net worth (includes contributions). */
+  netDelta: number;
+  netPct: number;
+  /** Sum of contributions logged with `date >= baseline date`. */
+  contributionsTotal: number;
+  fromIso: string;
+}
+
+/**
+ * P&L for the given range. Returns both pure market performance (excluding
+ * contributions logged in the period) and net change (including them).
+ */
+export function getPnLForRange(
+  snapshots: Snapshot[],
+  contributions: Contribution[],
+  currentTotal: number,
+  range: PnLRange,
+  now: Date = new Date(),
+): PnLResult | null {
+  if (snapshots.length === 0) return null;
+
+  let baselineSnap: Snapshot | null = null;
+  if (range === "ALL") {
+    baselineSnap = snapshots.reduce((acc, s) =>
+      new Date(s.created_at).getTime() < new Date(acc.created_at).getTime()
+        ? s
+        : acc,
+    );
+  } else {
+    let targetMs: number;
+    if (range === "YTD") {
+      targetMs = new Date(now.getFullYear(), 0, 1).getTime();
+    } else {
+      const days =
+        { "1D": 1, "7D": 7, "30D": 30, "90D": 90, "1Y": 365 }[range] ?? 0;
+      targetMs = now.getTime() - days * 86_400_000;
+    }
+    let bestDist = Infinity;
+    for (const s of snapshots) {
+      const t = new Date(s.created_at).getTime();
+      const dist = Math.abs(t - targetMs);
+      if (dist < bestDist) {
+        bestDist = dist;
+        baselineSnap = s;
+      }
+    }
+  }
+  if (!baselineSnap) return null;
+
+  const baseline = Number(baselineSnap.total_eur) || 0;
+  const baselineMs = new Date(baselineSnap.created_at).getTime();
+  const nowMs = now.getTime();
+
+  const contributionsTotal = contributions
+    .filter((c) => {
+      const cMs = new Date(c.date).getTime();
+      return cMs >= baselineMs && cMs <= nowMs;
+    })
+    .reduce((sum, c) => sum + (Number(c.amount_eur) || 0), 0);
+
+  const netDelta = currentTotal - baseline;
+  const marketDelta = netDelta - contributionsTotal;
+  const netPct = baseline > 0 ? (netDelta / baseline) * 100 : 0;
+  const marketPct = baseline > 0 ? (marketDelta / baseline) * 100 : 0;
+
+  return {
+    baseline,
+    marketDelta,
+    marketPct,
+    netDelta,
+    netPct,
+    contributionsTotal,
+    fromIso: baselineSnap.created_at,
+  };
 }
 
 /** Sort positions by current EUR value, DESC. */

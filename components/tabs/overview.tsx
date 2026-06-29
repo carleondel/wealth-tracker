@@ -1,22 +1,27 @@
 "use client";
 
+import { useState } from "react";
 import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from "recharts";
 import { Card, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { fmtEur, fmtUsd } from "@/lib/format";
+import { fmtDate, fmtEur, fmtPct, fmtUsd } from "@/lib/format";
 import { CATEGORY_COLORS, POLICY } from "@/lib/policy";
 import {
   getActiveContributionRule,
   getLiquidityEur,
   getLiquidityMonths,
+  getPnLForRange,
   getTargetProgress,
+  type PnLRange,
 } from "@/lib/calculations";
 import type {
   Breakdown,
   Category,
+  Contribution,
   Position,
   PriceMap,
+  Snapshot,
 } from "@/lib/types";
 
 interface Props {
@@ -24,9 +29,18 @@ interface Props {
   totalEur: number;
   prices: PriceMap;
   positions: Position[];
+  snapshots: Snapshot[];
+  contributions: Contribution[];
 }
 
-export function OverviewTab({ breakdown, totalEur, prices, positions }: Props) {
+export function OverviewTab({
+  breakdown,
+  totalEur,
+  prices,
+  positions,
+  snapshots,
+  contributions,
+}: Props) {
   const liquidity = getLiquidityEur(breakdown);
   const months = getLiquidityMonths(liquidity);
   const liquidityPct = Math.min(100, (liquidity / POLICY.liquidityTargetEur) * 100);
@@ -47,6 +61,14 @@ export function OverviewTab({ breakdown, totalEur, prices, positions }: Props) {
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+      <div className="lg:col-span-3">
+        <PnLCard
+          snapshots={snapshots}
+          contributions={contributions}
+          currentTotal={totalEur}
+        />
+      </div>
+
       <Card className="lg:col-span-2">
         <CardTitle>Distribución por categoría</CardTitle>
         <div className="mt-4 grid grid-cols-1 sm:grid-cols-[1fr,1fr] gap-6 items-center">
@@ -155,6 +177,116 @@ export function OverviewTab({ breakdown, totalEur, prices, positions }: Props) {
         </div>
       </Card>
     </div>
+  );
+}
+
+const RANGES: PnLRange[] = ["1D", "7D", "30D", "90D", "YTD", "1Y", "ALL"];
+
+function PnLCard({
+  snapshots,
+  contributions,
+  currentTotal,
+}: {
+  snapshots: Snapshot[];
+  contributions: Contribution[];
+  currentTotal: number;
+}) {
+  const [range, setRange] = useState<PnLRange>("30D");
+
+  if (snapshots.length < 2) {
+    return (
+      <Card>
+        <CardTitle>P&L</CardTitle>
+        <div className="mt-3 text-sm text-[var(--muted)]">
+          Necesitas al menos 2 snapshots para ver la evolución. Pulsa{" "}
+          <strong className="text-[var(--foreground)]">Update</strong> en
+          distintos momentos (días, semanas) para acumular historia.
+        </div>
+      </Card>
+    );
+  }
+
+  const result = getPnLForRange(snapshots, contributions, currentTotal, range);
+  const positive = result ? result.marketDelta >= 0 : true;
+  const color = positive ? "text-[var(--accent)]" : "text-[var(--danger)]";
+  const sign = positive ? "+" : "";
+
+  return (
+    <Card>
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-3">
+        <CardTitle>P&L (puro de mercado)</CardTitle>
+        <div className="flex gap-1 flex-wrap">
+          {RANGES.map((r) => (
+            <button
+              key={r}
+              onClick={() => setRange(r)}
+              className={`px-2.5 py-1 text-[10px] uppercase tracking-wider rounded transition-colors ${
+                range === r
+                  ? "bg-[var(--surface-2)] text-[var(--foreground)]"
+                  : "text-[var(--muted)] hover:text-[var(--foreground)]"
+              }`}
+            >
+              {r}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {result ? (
+        <div>
+          <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1">
+            <div className={`text-3xl font-semibold tabular-nums ${color}`}>
+              {sign}
+              {fmtEur(result.marketDelta)}
+            </div>
+            <div className={`text-base tabular-nums ${color}`}>
+              {fmtPct(result.marketPct)}
+            </div>
+          </div>
+          <div className="mt-2 grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs text-[var(--muted)]">
+            <div>
+              <div className="uppercase tracking-wider text-[10px]">
+                Aportaciones del periodo
+              </div>
+              <div className="text-[var(--foreground)] tabular-nums mt-0.5">
+                {result.contributionsTotal >= 0 ? "+" : ""}
+                {fmtEur(result.contributionsTotal)}
+              </div>
+            </div>
+            <div>
+              <div className="uppercase tracking-wider text-[10px]">
+                Cambio neto (con aportaciones)
+              </div>
+              <div
+                className={`tabular-nums mt-0.5 ${
+                  result.netDelta >= 0
+                    ? "text-[var(--accent)]"
+                    : "text-[var(--danger)]"
+                }`}
+              >
+                {result.netDelta >= 0 ? "+" : ""}
+                {fmtEur(result.netDelta)} · {fmtPct(result.netPct)}
+              </div>
+            </div>
+            <div>
+              <div className="uppercase tracking-wider text-[10px]">
+                Baseline → actual
+              </div>
+              <div className="text-[var(--foreground)] tabular-nums mt-0.5">
+                {fmtEur(result.baseline)} → {fmtEur(currentTotal)}
+              </div>
+              <div className="text-[10px] mt-0.5">
+                desde {fmtDate(result.fromIso)}
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : (
+        <div className="text-sm text-[var(--muted)]">
+          Sin datos en este rango.
+        </div>
+      )}
+    </Card>
   );
 }
 

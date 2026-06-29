@@ -885,6 +885,8 @@ export function Dashboard({ userId, userEmail, demoMode = false }: Props) {
                 totalEur={totalEur}
                 prices={prices}
                 positions={positions}
+                snapshots={snapshots}
+                contributions={contributions}
               />
             )}
             {tab === "positions" && (
