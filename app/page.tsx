@@ -24,11 +24,7 @@ export default function RootPage() {
   }, []);
 
   if (!ready) {
-    return (
-      <div className="flex-1 flex items-center justify-center text-sm text-[var(--muted)]">
-        Cargando…
-      </div>
-    );
+    return <div className="flex-1" aria-busy="true" />;
   }
 
   if (!session) {

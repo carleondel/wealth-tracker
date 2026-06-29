@@ -6,6 +6,7 @@ import { Header } from "@/components/header";
 import { UpdatePricesModal } from "@/components/update-prices-modal";
 import { EditPositionModal, type PositionPayload } from "@/components/edit-position-modal";
 import { EditAssetModal, type AssetPayload } from "@/components/edit-asset-modal";
+import { DashboardSkeleton } from "@/components/ui/skeleton";
 import { OverviewTab } from "@/components/tabs/overview";
 import { PositionsTab } from "@/components/tabs/positions";
 import { AllocationTab } from "@/components/tabs/allocation";
@@ -762,16 +763,16 @@ export function Dashboard({ userId, userEmail, demoMode = false }: Props) {
       />
 
       <main className="mx-auto max-w-6xl px-6 py-6 flex-1 w-full">
-        <div className="flex items-center justify-between mb-6 gap-4">
-          <nav className="flex gap-1 overflow-x-auto">
+        <div className="flex items-center justify-between mb-6 gap-4 border-b border-[var(--border)]">
+          <nav className="flex gap-1 overflow-x-auto -mb-px">
             {TABS.map((t) => (
               <button
                 key={t.id}
                 onClick={() => setTab(t.id)}
-                className={`px-4 py-2 text-xs uppercase tracking-wider rounded-md transition-colors ${
+                className={`px-3 py-3 text-xs uppercase tracking-wider border-b-2 transition-colors whitespace-nowrap ${
                   tab === t.id
-                    ? "bg-[var(--surface-2)] text-[var(--foreground)]"
-                    : "text-[var(--muted)] hover:text-[var(--foreground)]"
+                    ? "border-[var(--accent)] text-[var(--foreground)]"
+                    : "border-transparent text-[var(--muted)] hover:text-[var(--foreground)]"
                 }`}
               >
                 {t.label}
@@ -820,9 +821,7 @@ export function Dashboard({ userId, userEmail, demoMode = false }: Props) {
         ) : null}
 
         {loading ? (
-          <div className="text-center text-sm text-[var(--muted)] py-20">
-            Cargando datos…
-          </div>
+          <DashboardSkeleton />
         ) : isEmpty ? (
           <div className="py-10">
             <div className="text-center mb-8 max-w-xl mx-auto">

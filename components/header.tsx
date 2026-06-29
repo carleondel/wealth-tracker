@@ -36,17 +36,17 @@ export function Header({
 }: Props) {
   return (
     <header className="border-b border-[var(--border)] bg-[var(--surface)]/60 backdrop-blur-sm sticky top-0 z-40">
-      <div className="mx-auto max-w-6xl px-6 py-4 flex flex-col sm:flex-row sm:items-center gap-4 sm:gap-8">
+      <div className="mx-auto max-w-6xl px-6 py-5 flex flex-col gap-4 sm:flex-row sm:items-end sm:gap-8">
         <div className="flex flex-col">
           <span className="text-[10px] uppercase tracking-widest text-[var(--muted)]">
             Patrimonio total
           </span>
-          <span className="text-2xl font-semibold tabular-nums">
+          <span className="text-4xl sm:text-5xl font-semibold tabular-nums leading-none mt-1">
             {fmtEur(totalEur)}
           </span>
         </div>
 
-        <div className="flex flex-wrap items-end gap-4 sm:ml-auto">
+        <div className="flex flex-wrap items-end gap-3 sm:ml-auto">
           <FxField
             label="USD/EUR"
             value={usdEur}
@@ -106,7 +106,7 @@ function FxField({
   const variant =
     status === "LIVE" ? "accent" : status === "MANUAL" ? "warning" : "muted";
   return (
-    <label className="flex flex-col gap-1 text-xs">
+    <label className="flex flex-col gap-1 text-[10px]">
       <span className="flex items-center gap-2 uppercase tracking-wider text-[var(--muted)]">
         {label}
         <Badge variant={variant}>{status}</Badge>
@@ -116,7 +116,7 @@ function FxField({
         step={step}
         value={value}
         onChange={(e) => onChange(Number(e.target.value))}
-        className="w-28 bg-[var(--surface-2)] border border-[var(--border)] rounded px-2 py-1 text-[var(--foreground)] focus:outline-none focus:border-[var(--accent)]"
+        className="w-24 bg-[var(--surface-2)] border border-[var(--border)] rounded px-2 py-1 text-xs text-[var(--foreground)] focus:outline-none focus:border-[var(--accent)]"
       />
     </label>
   );
