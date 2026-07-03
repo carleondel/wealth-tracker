@@ -226,7 +226,18 @@ export function OverviewTab({
   );
 }
 
-const RANGES: PnLRange[] = ["1D", "7D", "30D", "90D", "YTD", "1Y", "ALL"];
+const RANGES: PnLRange[] = ["1D", "7D", "MTD", "30D", "90D", "YTD", "1Y", "2Y", "ALL"];
+
+function rangeLabel(r: PnLRange): string {
+  switch (r) {
+    case "30D":
+      return "1M";
+    case "90D":
+      return "3M";
+    default:
+      return r;
+  }
+}
 
 function PnLCard({
   snapshots,
@@ -272,7 +283,7 @@ function PnLCard({
                   : "text-[var(--muted)] hover:text-[var(--foreground)]"
               }`}
             >
-              {r}
+              {rangeLabel(r)}
             </button>
           ))}
         </div>
