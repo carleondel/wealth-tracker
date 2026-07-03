@@ -152,14 +152,17 @@ export function describeOp(
       const p = findPositionByTicker(positions, op.ticker);
       const direction = op.delta_shares > 0 ? "compra" : "venta";
       const abs = Math.abs(op.delta_shares);
+      const unit = positionUnit(p, op.ticker);
       const next = p ? p.shares + op.delta_shares : null;
       const priceSuffix = op.price_usd ? ` a $${op.price_usd}` : "";
       const missing = p ? "" : " (posición nueva, se creará)";
-      return `${direction} ${abs} ${op.ticker}${priceSuffix}${missing}${next != null ? ` → ${round(next)} shares` : ""}`;
+      return `${direction} ${abs} ${op.ticker}${priceSuffix}${missing}${next != null ? ` → queda ${round(next)} ${unit}` : ""}`;
     }
     case "set_position": {
+      const p = findPositionByTicker(positions, op.ticker);
+      const unit = positionUnit(p, op.ticker);
       const parts: string[] = [];
-      if (op.shares != null) parts.push(`shares=${op.shares}`);
+      if (op.shares != null) parts.push(`${unit}=${op.shares}`);
       if (op.avg_price_usd != null) parts.push(`avg=$${op.avg_price_usd}`);
       if (op.target_price_usd != null) parts.push(`target=$${op.target_price_usd}`);
       return `actualizar ${op.ticker} (${parts.join(", ")})`;
@@ -188,4 +191,9 @@ export function describeOp(
 
 function round(n: number, digits = 2): string {
   return Number(n.toFixed(digits)).toString();
+}
+
+function positionUnit(p: Position | undefined, ticker: string): string {
+  if (p?.is_crypto) return ticker.split("-")[0];
+  return "shares";
 }

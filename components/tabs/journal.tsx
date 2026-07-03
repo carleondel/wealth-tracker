@@ -1,10 +1,11 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Check, Sparkles, Wand2 } from "lucide-react";
+import { Check, Sparkles, Trash2, Wand2 } from "lucide-react";
 import { Card, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { ManualOpForm } from "@/components/manual-op-form";
 import {
   describeOp,
   type JournalOp,
@@ -37,14 +38,32 @@ export function JournalTab({ positions, manualAssets, onApply }: Props) {
 
   const today = useMemo(() => new Date().toISOString().slice(0, 10), []);
 
+  function addOp(op: JournalOp) {
+    setResult(null);
+    setOps((prev) => {
+      const idx = prev.length;
+      setSelected((sel) => {
+        const next = new Set(sel);
+        next.add(idx);
+        return next;
+      });
+      return [...prev, op];
+    });
+  }
+
+  function clearOps() {
+    setOps([]);
+    setSelected(new Set());
+    setRaw(null);
+    setResult(null);
+  }
+
   async function parse() {
     const trimmed = text.trim();
     if (!trimmed) return;
     setParsing(true);
     setErr(null);
     setResult(null);
-    setOps([]);
-    setSelected(new Set());
     setRaw(null);
     try {
       const res = await fetch("/api/journal", {
@@ -59,8 +78,18 @@ export function JournalTab({ positions, manualAssets, onApply }: Props) {
       });
       const data = (await res.json()) as JournalResponse;
       if (data.error) setErr(data.error);
-      setOps(data.operations ?? []);
-      setSelected(new Set((data.operations ?? []).map((_, i) => i)));
+      const parsed = data.operations ?? [];
+      if (parsed.length > 0) {
+        setOps((prev) => {
+          const startIdx = prev.length;
+          setSelected((sel) => {
+            const next = new Set(sel);
+            parsed.forEach((_, i) => next.add(startIdx + i));
+            return next;
+          });
+          return [...prev, ...parsed];
+        });
+      }
       if (data.raw) setRaw(data.raw);
     } catch (e) {
       setErr(e instanceof Error ? e.message : String(e));
@@ -101,6 +130,12 @@ export function JournalTab({ positions, manualAssets, onApply }: Props) {
 
   return (
     <div className="space-y-5">
+      <ManualOpForm
+        positions={positions}
+        manualAssets={manualAssets}
+        onAdd={addOp}
+      />
+
       <Card>
         <div className="flex items-center justify-between">
           <CardTitle>
@@ -111,9 +146,8 @@ export function JournalTab({ positions, manualAssets, onApply }: Props) {
           <Badge variant="muted">NVIDIA NIM</Badge>
         </div>
         <p className="mt-2 text-xs text-[var(--muted)]">
-          Escribe lo que ha pasado en tu cartera. El modelo lo parsea a
-          operaciones estructuradas y tú decides qué aplicar antes de tocar la
-          base de datos.
+          Alternativa al form manual. El modelo parsea texto libre a
+          operaciones estructuradas y las añade a la lista de abajo.
         </p>
 
         <textarea
@@ -185,14 +219,20 @@ export function JournalTab({ positions, manualAssets, onApply }: Props) {
             ))}
           </div>
 
-          <div className="mt-4 flex items-center justify-between">
+          <div className="mt-4 flex items-center justify-between gap-2">
             <span className="text-xs text-[var(--muted)]">
               {selected.size} de {ops.length} seleccionada(s)
             </span>
-            <Button onClick={apply} disabled={applying || selected.size === 0}>
-              <Check size={12} />
-              {applying ? "Aplicando…" : "Aplicar seleccionadas"}
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button variant="ghost" onClick={clearOps} disabled={applying}>
+                <Trash2 size={12} />
+                Limpiar
+              </Button>
+              <Button onClick={apply} disabled={applying || selected.size === 0}>
+                <Check size={12} />
+                {applying ? "Aplicando…" : "Aplicar seleccionadas"}
+              </Button>
+            </div>
           </div>
         </Card>
       ) : null}
