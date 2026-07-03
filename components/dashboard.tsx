@@ -298,45 +298,6 @@ export function Dashboard({ userId, userEmail, demoMode = false }: Props) {
     }
   }, [positions, persistSnapshot]);
 
-  const handleAddContribution = useCallback(
-    async (c: {
-      amount_eur: number;
-      type: Contribution["type"];
-      note: string;
-      date: string;
-    }) => {
-      if (demoMode) {
-        const local: Contribution = {
-          id: localId(),
-          amount_eur: c.amount_eur,
-          type: c.type,
-          note: c.note || null,
-          date: c.date,
-          created_at: new Date().toISOString(),
-        };
-        setContributions((prev) => [local, ...prev]);
-        return;
-      }
-      const { data, error } = await supabase
-        .from("contributions")
-        .insert({
-          owner_id: userId,
-          amount_eur: c.amount_eur,
-          type: c.type,
-          note: c.note || null,
-          date: c.date,
-        })
-        .select()
-        .single();
-      if (error) {
-        setErr(error.message);
-        return;
-      }
-      setContributions((prev) => [data as Contribution, ...prev]);
-    },
-    [userId, demoMode],
-  );
-
   const handleSavePosition = useCallback(
     async (payload: PositionPayload, id: string | null) => {
       if (demoMode) {
@@ -921,7 +882,6 @@ export function Dashboard({ userId, userEmail, demoMode = false }: Props) {
               <HistoryTab
                 snapshots={snapshots}
                 contributions={contributions}
-                onAddContribution={handleAddContribution}
               />
             )}
             {tab === "journal" && (

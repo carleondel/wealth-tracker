@@ -155,7 +155,16 @@ export function getAccruedInterest(
   return { days, accruedEur };
 }
 
-export type PnLRange = "1D" | "7D" | "30D" | "90D" | "YTD" | "1Y" | "ALL";
+export type PnLRange =
+  | "1D"
+  | "7D"
+  | "MTD"
+  | "30D"
+  | "90D"
+  | "YTD"
+  | "1Y"
+  | "2Y"
+  | "ALL";
 
 export interface PnLResult {
   baseline: number;
@@ -174,6 +183,42 @@ export interface PnLResult {
  * P&L for the given range. Returns both pure market performance (excluding
  * contributions logged in the period) and net change (including them).
  */
+function findBaselineSnapshot(
+  snapshots: Snapshot[],
+  range: PnLRange,
+  now: Date,
+): Snapshot | null {
+  if (snapshots.length === 0) return null;
+  if (range === "ALL") {
+    return snapshots.reduce((acc, s) =>
+      new Date(s.created_at).getTime() < new Date(acc.created_at).getTime()
+        ? s
+        : acc,
+    );
+  }
+  let targetMs: number;
+  if (range === "YTD") {
+    targetMs = new Date(now.getFullYear(), 0, 1).getTime();
+  } else if (range === "MTD") {
+    targetMs = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
+  } else {
+    const days =
+      { "1D": 1, "7D": 7, "30D": 30, "90D": 90, "1Y": 365, "2Y": 730 }[range] ?? 0;
+    targetMs = now.getTime() - days * 86_400_000;
+  }
+  let best: Snapshot | null = null;
+  let bestDist = Infinity;
+  for (const s of snapshots) {
+    const t = new Date(s.created_at).getTime();
+    const dist = Math.abs(t - targetMs);
+    if (dist < bestDist) {
+      bestDist = dist;
+      best = s;
+    }
+  }
+  return best;
+}
+
 export function getPnLForRange(
   snapshots: Snapshot[],
   contributions: Contribution[],
@@ -182,33 +227,7 @@ export function getPnLForRange(
   now: Date = new Date(),
 ): PnLResult | null {
   if (snapshots.length === 0) return null;
-
-  let baselineSnap: Snapshot | null = null;
-  if (range === "ALL") {
-    baselineSnap = snapshots.reduce((acc, s) =>
-      new Date(s.created_at).getTime() < new Date(acc.created_at).getTime()
-        ? s
-        : acc,
-    );
-  } else {
-    let targetMs: number;
-    if (range === "YTD") {
-      targetMs = new Date(now.getFullYear(), 0, 1).getTime();
-    } else {
-      const days =
-        { "1D": 1, "7D": 7, "30D": 30, "90D": 90, "1Y": 365 }[range] ?? 0;
-      targetMs = now.getTime() - days * 86_400_000;
-    }
-    let bestDist = Infinity;
-    for (const s of snapshots) {
-      const t = new Date(s.created_at).getTime();
-      const dist = Math.abs(t - targetMs);
-      if (dist < bestDist) {
-        bestDist = dist;
-        baselineSnap = s;
-      }
-    }
-  }
+  const baselineSnap = findBaselineSnapshot(snapshots, range, now);
   if (!baselineSnap) return null;
 
   const baseline = Number(baselineSnap.total_eur) || 0;
@@ -236,6 +255,53 @@ export function getPnLForRange(
     contributionsTotal,
     fromIso: baselineSnap.created_at,
   };
+}
+
+export interface HistoryPoint {
+  createdAt: string;
+  /** Absolute net worth EUR at this point. */
+  value: number;
+  /** Cumulative market % gain from the range's baseline (excludes contributions). */
+  pct: number;
+}
+
+/**
+ * Series for the history chart. Filters snapshots to the requested range and
+ * computes both absolute value and cumulative pure-market percent for each
+ * point (so the chart can toggle between "€" and "%" modes).
+ */
+export function getHistoryChartData(
+  snapshots: Snapshot[],
+  contributions: Contribution[],
+  range: PnLRange,
+  now: Date = new Date(),
+): HistoryPoint[] {
+  if (snapshots.length === 0) return [];
+  const baselineSnap = findBaselineSnapshot(snapshots, range, now);
+  if (!baselineSnap) return [];
+  const baseline = Number(baselineSnap.total_eur) || 0;
+  const baselineMs = new Date(baselineSnap.created_at).getTime();
+
+  const inRange = snapshots
+    .filter((s) => new Date(s.created_at).getTime() >= baselineMs)
+    .sort(
+      (a, b) =>
+        new Date(a.created_at).getTime() - new Date(b.created_at).getTime(),
+    );
+
+  return inRange.map((s) => {
+    const t = new Date(s.created_at).getTime();
+    const contribsUpTo = contributions
+      .filter((c) => {
+        const cMs = new Date(c.date).getTime();
+        return cMs >= baselineMs && cMs <= t;
+      })
+      .reduce((sum, c) => sum + (Number(c.amount_eur) || 0), 0);
+    const value = Number(s.total_eur) || 0;
+    const marketDelta = value - baseline - contribsUpTo;
+    const pct = baseline > 0 ? (marketDelta / baseline) * 100 : 0;
+    return { createdAt: s.created_at, value, pct };
+  });
 }
 
 /** Sort positions by current EUR value, DESC. */

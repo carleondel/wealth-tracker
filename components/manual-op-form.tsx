@@ -22,6 +22,7 @@ export function ManualOpForm({ positions, manualAssets, onAdd }: Props) {
   const [priceUsd, setPriceUsd] = useState("");
   const [assetName, setAssetName] = useState("");
   const [amountEur, setAmountEur] = useState("");
+  const [isExternal, setIsExternal] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
   const isPos = kind === "buy" || kind === "sell";
@@ -32,6 +33,7 @@ export function ManualOpForm({ positions, manualAssets, onAdd }: Props) {
     setPriceUsd("");
     setAssetName("");
     setAmountEur("");
+    setIsExternal(false);
     setErr(null);
   }
 
@@ -63,6 +65,15 @@ export function ManualOpForm({ positions, manualAssets, onAdd }: Props) {
         name: assetName.trim(),
         delta_eur: delta,
       });
+      if (kind === "deposit" && isExternal) {
+        onAdd({
+          type: "contribute",
+          amount_eur: a,
+          contribution_type: "nomina",
+          note: assetName.trim(),
+          date: new Date().toISOString().slice(0, 10),
+        });
+      }
     }
     reset();
   }
@@ -173,6 +184,21 @@ export function ManualOpForm({ positions, manualAssets, onAdd }: Props) {
           Sin precio: solo se ajustan las shares. Con precio: se recalcula el
           coste medio ponderado.
         </p>
+      ) : null}
+
+      {kind === "deposit" ? (
+        <label className="mt-3 flex items-center gap-2 text-xs cursor-pointer">
+          <input
+            type="checkbox"
+            checked={isExternal}
+            onChange={(e) => setIsExternal(e.target.checked)}
+            className="accent-[var(--accent)]"
+          />
+          <span>
+            Es dinero externo (nómina, ahorro nuevo…)
+            <span className="text-[var(--muted)]"> — se registra también como aportación</span>
+          </span>
+        </label>
       ) : null}
 
       {err ? (
