@@ -129,7 +129,7 @@ export function JournalTab({ positions, manualAssets, onApply }: Props) {
   }
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-4 sm:space-y-5">
       <ManualOpForm
         positions={positions}
         manualAssets={manualAssets}
@@ -163,7 +163,7 @@ export function JournalTab({ positions, manualAssets, onApply }: Props) {
             <button
               key={ex}
               onClick={() => setText(ex)}
-              className="text-[11px] px-2 py-1 rounded border border-[var(--border)] text-[var(--muted)] hover:text-[var(--foreground)] hover:border-[var(--muted)]"
+              className="text-left text-[11px] px-2 py-1.5 sm:py-1 rounded border border-[var(--border)] text-[var(--muted)] hover:text-[var(--foreground)] hover:border-[var(--muted)]"
             >
               {ex}
             </button>
@@ -207,9 +207,9 @@ export function JournalTab({ positions, manualAssets, onApply }: Props) {
                   type="checkbox"
                   checked={selected.has(i)}
                   onChange={() => toggle(i)}
-                  className="mt-0.5 accent-[var(--accent)]"
+                  className="mt-0.5 size-4 shrink-0 accent-[var(--accent)]"
                 />
-                <div className="flex-1 text-sm">
+                <div className="flex-1 min-w-0 text-sm break-words">
                   <div className="flex items-center gap-2">
                     <Badge variant="muted">{opTypeLabel(op.type)}</Badge>
                   </div>
@@ -219,11 +219,11 @@ export function JournalTab({ positions, manualAssets, onApply }: Props) {
             ))}
           </div>
 
-          <div className="mt-4 flex items-center justify-between gap-2">
+          <div className="mt-4 flex flex-wrap items-center justify-between gap-2">
             <span className="text-xs text-[var(--muted)]">
               {selected.size} de {ops.length} seleccionada(s)
             </span>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 ml-auto">
               <Button variant="ghost" onClick={clearOps} disabled={applying}>
                 <Trash2 size={12} />
                 Limpiar

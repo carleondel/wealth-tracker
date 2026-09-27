@@ -62,7 +62,7 @@ export function PolicyTab({ breakdown, positions, prices }: Props) {
   const byRole = groupByRole(positions);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       <Card>
         <CardTitle>Política por rol</CardTitle>
         <p className="mt-2 text-xs text-[var(--muted)]">
@@ -145,15 +145,15 @@ export function PolicyTab({ breakdown, positions, prices }: Props) {
               return (
                 <div
                   key={p.id}
-                  className="flex items-center justify-between border-b border-[var(--border)] pb-2 last:border-0"
+                  className="flex items-center justify-between gap-3 border-b border-[var(--border)] pb-2 last:border-0"
                 >
-                  <div>
+                  <div className="min-w-0 flex flex-col sm:block">
                     <span className="font-semibold">{p.ticker}</span>
-                    <span className="text-[var(--muted)] ml-2 text-xs">
+                    <span className="text-[var(--muted)] sm:ml-2 text-xs">
                       objetivo {fmtUsd(target, 0)}
                     </span>
                   </div>
-                  <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-2 sm:gap-3 shrink-0">
                     <span className="text-[var(--muted)] tabular-nums">
                       {currentPrice != null ? fmtUsd(currentPrice) : "—"}
                     </span>

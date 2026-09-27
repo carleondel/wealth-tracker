@@ -60,7 +60,7 @@ export function AllocationTab({
   const delta = simTotal - total;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       <Card>
         <CardTitle>Asignación vs objetivo</CardTitle>
         <div className="mt-4 space-y-3">
@@ -69,13 +69,18 @@ export function AllocationTab({
             const target = targets[cat];
             const dev = current - target;
             return (
-              <div key={cat} className="flex items-center gap-3 text-xs">
+              <div
+                key={cat}
+                className="flex flex-wrap sm:flex-nowrap items-center gap-x-2 sm:gap-x-3 gap-y-2 text-xs"
+              >
                 <span
                   className="inline-block w-2.5 h-2.5 rounded-sm shrink-0"
                   style={{ background: CATEGORY_COLORS[cat] }}
                 />
-                <span className="w-28 shrink-0 truncate">{cat}</span>
-                <div className="flex-1 relative h-2 bg-[var(--surface-2)] rounded-full overflow-hidden">
+                <span className="flex-1 min-w-0 sm:flex-none sm:w-28 sm:shrink-0 truncate">
+                  {cat}
+                </span>
+                <div className="order-last sm:order-none basis-full sm:basis-auto flex-1 relative h-2 bg-[var(--surface-2)] rounded-full overflow-hidden">
                   <div
                     className="absolute inset-y-0 left-0 rounded-full"
                     style={{
@@ -88,13 +93,14 @@ export function AllocationTab({
                     style={{ left: `${Math.min(100, target)}%` }}
                   />
                 </div>
-                <span className="w-14 text-right tabular-nums">
+                <span className="w-12 sm:w-14 text-right tabular-nums">
                   {current.toFixed(1)}%
                 </span>
                 <label className="flex items-center gap-1 text-[var(--muted)]">
-                  obj
+                  <span className="hidden sm:inline">obj</span>
                   <input
                     type="number"
+                    inputMode="decimal"
                     value={target}
                     onChange={(e) =>
                       setTargets((prev) => ({
@@ -106,10 +112,12 @@ export function AllocationTab({
                   />
                   %
                 </label>
-                <Badge variant={deviationVariant(dev)}>
-                  {dev > 0 ? "+" : ""}
-                  {dev.toFixed(1)}pp
-                </Badge>
+                <span className="w-[4.5rem] shrink-0 flex justify-end">
+                  <Badge variant={deviationVariant(dev)}>
+                    {dev > 0 ? "+" : ""}
+                    {dev.toFixed(1)}pp
+                  </Badge>
+                </span>
               </div>
             );
           })}
@@ -118,15 +126,15 @@ export function AllocationTab({
 
       <Card>
         <CardTitle>Top 5 concentración</CardTitle>
-        <div className="mt-3 space-y-2 text-sm">
+        <div className="mt-3 space-y-2 text-xs sm:text-sm">
           {top.map(({ position, valueEur, pct }) => (
-            <div key={position.id} className="flex items-center gap-3">
+            <div key={position.id} className="flex items-center gap-2 sm:gap-3">
               <span
                 className="w-2.5 h-2.5 rounded-sm shrink-0"
                 style={{ background: CATEGORY_COLORS[position.category] }}
               />
-              <span className="w-16 font-semibold">{position.ticker}</span>
-              <div className="flex-1 h-1.5 bg-[var(--surface-2)] rounded-full overflow-hidden">
+              <span className="w-16 shrink-0 truncate font-semibold">{position.ticker}</span>
+              <div className="flex-1 min-w-8 h-1.5 bg-[var(--surface-2)] rounded-full overflow-hidden">
                 <div
                   className="h-full rounded-full"
                   style={{
@@ -135,10 +143,10 @@ export function AllocationTab({
                   }}
                 />
               </div>
-              <span className="w-14 text-right tabular-nums">
+              <span className="w-12 sm:w-14 text-right tabular-nums">
                 {pct.toFixed(1)}%
               </span>
-              <span className="w-24 text-right tabular-nums text-[var(--muted)]">
+              <span className="w-20 sm:w-24 text-right tabular-nums text-[var(--muted)]">
                 {fmtEur(valueEur)}
               </span>
             </div>
@@ -147,7 +155,7 @@ export function AllocationTab({
       </Card>
 
       <Card>
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between gap-2">
           <CardTitle>Simulador de escenarios</CardTitle>
           <Badge variant={delta >= 0 ? "accent" : "danger"}>
             Δ {fmtEur(delta)}
@@ -225,7 +233,7 @@ function Slider({
         step={step}
         value={value}
         onChange={(e) => onChange(Number(e.target.value))}
-        className="accent-[var(--accent)]"
+        className="w-full h-6 accent-[var(--accent)]"
       />
     </div>
   );

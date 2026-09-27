@@ -723,14 +723,21 @@ export function Dashboard({ userId, userEmail, demoMode = false }: Props) {
         updating={updating}
       />
 
-      <main className="mx-auto max-w-6xl px-6 py-6 flex-1 w-full">
-        <div className="flex items-center justify-between mb-6 gap-4 border-b border-[var(--border)]">
-          <nav className="flex gap-1 overflow-x-auto -mb-px">
+      <main className="mx-auto max-w-6xl px-4 sm:px-6 py-4 sm:py-6 pb-[max(1.5rem,env(safe-area-inset-bottom))] flex-1 w-full">
+        <div className="flex items-center justify-between mb-4 sm:mb-6 gap-2 sm:gap-4 border-b border-[var(--border)]">
+          <nav className="flex gap-0.5 sm:gap-1 overflow-x-auto no-scrollbar scroll-fade-x -mb-px min-w-0 flex-1 -ml-2 pr-8 sm:ml-0 sm:pr-0">
             {TABS.map((t) => (
               <button
                 key={t.id}
-                onClick={() => setTab(t.id)}
-                className={`px-3 py-3 text-xs uppercase tracking-wider border-b-2 transition-colors whitespace-nowrap ${
+                onClick={(e) => {
+                  setTab(t.id);
+                  e.currentTarget.scrollIntoView({
+                    behavior: "smooth",
+                    block: "nearest",
+                    inline: "center",
+                  });
+                }}
+                className={`shrink-0 px-2.5 sm:px-3 py-3 text-xs uppercase tracking-wider border-b-2 transition-colors whitespace-nowrap ${
                   tab === t.id
                     ? "border-[var(--accent)] text-[var(--foreground)]"
                     : "border-transparent text-[var(--muted)] hover:text-[var(--foreground)]"
@@ -753,7 +760,7 @@ export function Dashboard({ userId, userEmail, demoMode = false }: Props) {
             )}
             <button
               onClick={handleLogout}
-              className="p-1.5 rounded-md border border-[var(--border)] text-[var(--muted)] hover:text-[var(--foreground)] hover:border-[var(--muted)]"
+              className="p-2 sm:p-1.5 rounded-md border border-[var(--border)] text-[var(--muted)] hover:text-[var(--foreground)] hover:border-[var(--muted)]"
               title={demoMode ? "Salir del demo" : "Salir"}
               aria-label={demoMode ? "Salir del demo" : "Salir"}
             >

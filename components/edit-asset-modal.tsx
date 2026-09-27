@@ -128,11 +128,11 @@ export function EditAssetModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
+      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm"
       onClick={onCancel}
     >
       <div
-        className="w-full max-w-lg max-h-[90vh] overflow-auto rounded-xl border border-[var(--border)] bg-[var(--surface)] p-6 shadow-2xl m-4"
+        className="w-full max-w-lg max-h-[90dvh] overflow-auto overscroll-contain rounded-t-2xl sm:rounded-xl border border-[var(--border)] bg-[var(--surface)] p-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:p-6 shadow-2xl sm:m-4"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between mb-4">
@@ -149,9 +149,9 @@ export function EditAssetModal({
         </div>
 
         {accrual && accrual.accruedEur > 0.01 ? (
-          <div className="mb-4 rounded-md border border-[var(--accent)]/50 bg-[color-mix(in_srgb,var(--accent)_10%,transparent)] px-3 py-2.5 flex items-center gap-3">
-            <Zap size={14} className="text-[var(--accent)]" />
-            <div className="text-xs flex-1">
+          <div className="mb-4 rounded-md border border-[var(--accent)]/50 bg-[color-mix(in_srgb,var(--accent)_10%,transparent)] px-3 py-2.5 flex flex-wrap items-center gap-3">
+            <Zap size={14} className="text-[var(--accent)] shrink-0" />
+            <div className="text-xs flex-1 min-w-[160px]">
               <div className="font-semibold">
                 +{fmtEur(accrual.accruedEur, 2)} acumulados
               </div>
@@ -257,7 +257,7 @@ export function EditAssetModal({
           </div>
         ) : null}
 
-        <div className="mt-6 flex items-center justify-between">
+        <div className="mt-6 flex flex-wrap items-center justify-between gap-2">
           {asset && onDelete ? (
             <Button variant="danger" onClick={remove} disabled={deleting}>
               <Trash2 size={12} />
@@ -309,4 +309,4 @@ function blank(): AssetPayload {
 }
 
 const input =
-  "bg-[var(--surface-2)] border border-[var(--border)] rounded px-2 py-1.5 text-sm text-[var(--foreground)] focus:outline-none focus:border-[var(--accent)]";
+  "bg-[var(--surface-2)] border border-[var(--border)] rounded px-2 py-2 sm:py-1.5 text-sm text-[var(--foreground)] focus:outline-none focus:border-[var(--accent)]";
