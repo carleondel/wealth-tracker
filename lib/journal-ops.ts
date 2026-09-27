@@ -1,8 +1,8 @@
 import type { Contribution, ManualAsset, Position } from "./types";
 
 /**
- * Operations the LLM can emit from a journal entry. The backend validates and
- * the frontend shows them for confirmation before anything hits the DB.
+ * Operations built from the manual Journal form. The frontend shows them for
+ * confirmation before anything hits the DB.
  */
 export type JournalOp =
   | {
@@ -35,90 +35,6 @@ export type JournalOp =
       note?: string | null;
       date?: string | null;
     };
-
-export interface JournalResponse {
-  operations?: JournalOp[];
-  raw?: string;
-  error?: string;
-}
-
-const CONTRIBUTION_TYPES: Contribution["type"][] = [
-  "liquidez",
-  "inversion",
-  "nomina",
-  "otro",
-];
-
-/** Validate an unknown value as a JournalOp. Returns null if invalid. */
-export function validateOp(candidate: unknown): JournalOp | null {
-  if (!candidate || typeof candidate !== "object") return null;
-  const o = candidate as Record<string, unknown>;
-  const type = o.type;
-  if (typeof type !== "string") return null;
-
-  const num = (v: unknown): number | undefined =>
-    typeof v === "number" && Number.isFinite(v) ? v : undefined;
-
-  switch (type) {
-    case "adjust_position": {
-      const ticker = typeof o.ticker === "string" ? o.ticker.trim() : "";
-      const delta = num(o.delta_shares);
-      if (!ticker || delta === undefined || delta === 0) return null;
-      return {
-        type,
-        ticker: ticker.toUpperCase(),
-        delta_shares: delta,
-        price_usd: num(o.price_usd) ?? null,
-      };
-    }
-    case "set_position": {
-      const ticker = typeof o.ticker === "string" ? o.ticker.trim() : "";
-      if (!ticker) return null;
-      const shares = num(o.shares);
-      const avg = num(o.avg_price_usd);
-      const target = num(o.target_price_usd);
-      if (shares === undefined && avg === undefined && target === undefined) {
-        return null;
-      }
-      return {
-        type,
-        ticker: ticker.toUpperCase(),
-        shares: shares ?? null,
-        avg_price_usd: avg ?? null,
-        target_price_usd: target ?? null,
-      };
-    }
-    case "adjust_asset": {
-      const name = typeof o.name === "string" ? o.name.trim() : "";
-      const delta = num(o.delta_eur);
-      if (!name || delta === undefined || delta === 0) return null;
-      return { type, name, delta_eur: delta };
-    }
-    case "set_asset": {
-      const name = typeof o.name === "string" ? o.name.trim() : "";
-      const value = num(o.value_eur);
-      if (!name || value === undefined) return null;
-      return { type, name, value_eur: value };
-    }
-    case "contribute": {
-      const amount = num(o.amount_eur);
-      if (amount === undefined || amount === 0) return null;
-      const rawType = typeof o.contribution_type === "string"
-        ? (o.contribution_type as Contribution["type"])
-        : "otro";
-      const ct = CONTRIBUTION_TYPES.includes(rawType) ? rawType : "otro";
-      const note = typeof o.note === "string" && o.note.trim().length > 0
-        ? o.note.trim()
-        : null;
-      const date = typeof o.date === "string" && /^\d{4}-\d{2}-\d{2}$/.test(o.date)
-        ? o.date
-        : null;
-      return { type, amount_eur: amount, contribution_type: ct, note, date };
-    }
-    default:
-      return null;
-  }
-}
 
 export function findPositionByTicker(
   positions: Position[],
