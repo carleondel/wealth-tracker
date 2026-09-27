@@ -62,7 +62,7 @@ template or from scratch.
 ## Screenshots
 
 ### Login
-Magic link only — type your email, click the link in your inbox, you're in.
+Passwordless — type your email, then enter the code from the email or click the link.
 
 ![Login](./assets/01-login.png)
 
@@ -125,7 +125,12 @@ npm install
    URL once deployed).
 5. **Authentication → Providers → Email:** make sure Email is enabled.
    "Confirm email" can stay off for the magic-link flow.
-6. **Project Settings → API:** copy your `Project URL` and the
+6. **Authentication → Email Templates → Magic Link:** add the one-time code
+   to the body, e.g. `<p>Tu código: <strong>{{ .Token }}</strong></p>`. The
+   login screen accepts that code, which is the only way to sign in from an
+   iOS home-screen app (it doesn't share storage with Safari, where the link
+   opens).
+7. **Project Settings → API:** copy your `Project URL` and the
    `publishable` key.
 
 ### 3. Configure environment
@@ -147,8 +152,9 @@ Fill in:
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000), enter your email, click
-the magic link in your inbox, then pick a template on the empty dashboard.
+Open [http://localhost:3000](http://localhost:3000), enter your email, type
+the code from the email (or click the link), then pick a template on the
+empty dashboard.
 
 ### 5. Deploy
 
@@ -214,6 +220,8 @@ your own Supabase and your own Vercel, and the app behaves identically.
 app/
   layout.tsx
   page.tsx                   # auth gate (login vs dashboard)
+  icon.tsx / apple-icon.tsx  # app icons generated from components/logo.tsx
+  manifest.ts                # PWA manifest (home-screen install)
   demo/page.tsx              # public demo, in-memory state
   api/prices/route.ts        # CoinGecko + Stooq + Frankfurter
 components/

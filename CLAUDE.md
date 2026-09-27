@@ -40,9 +40,13 @@ Tables (all rows gated by `owner_id = auth.uid()`):
 
 ## Auth flow
 1. User lands on `/` → `components/login-screen.tsx` asks for email.
-2. `signInWithOtp` sends a magic link to the email.
-3. User clicks link → redirects to `/` with session tokens in URL hash.
-4. `@supabase/supabase-js` parses the hash, sets the session, dashboard renders.
+2. `signInWithOtp` sends an email with a magic link **and** a one-time code
+   (the Supabase "Magic Link" template must include `{{ .Token }}`).
+3. Either the user types the code → `verifyOtp({ email, token, type: "email" })`,
+   or clicks the link → redirects to `/` with session tokens in the URL hash,
+   which `@supabase/supabase-js` parses.
+4. The code path is required for the iOS home-screen app: it has its own
+   storage, so a link opened in Safari never logs the installed app in.
 5. `components/dashboard.tsx` receives `userId` + `userEmail` as props and
    filters everything through Supabase RLS.
 
@@ -88,11 +92,14 @@ Tables (all rows gated by `owner_id = auth.uid()`):
 app/
   layout.tsx
   page.tsx                   # auth gate (login vs dashboard)
+  icon.tsx / apple-icon.tsx  # PNG icons rendered from LogoMark
+  manifest.ts                # PWA manifest
   demo/page.tsx              # public demo, demoMode=true
   api/prices/route.ts        # CoinGecko + Finnhub + Frankfurter aggregator
 components/
   dashboard.tsx              # all state + handlers (branches on demoMode)
-  login-screen.tsx           # magic link form
+  login-screen.tsx           # email → OTP code (or magic link)
+  logo.tsx                   # LogoMark SVG (UI + generated icons)
   header.tsx
   update-prices-modal.tsx    # manual price entry fallback
   edit-position-modal.tsx    # CRUD positions

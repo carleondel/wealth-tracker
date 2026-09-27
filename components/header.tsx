@@ -2,6 +2,7 @@
 
 import { Pencil, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { LogoMark } from "@/components/logo";
 import { fmtEur, fmtDateTime, fmtPct } from "@/lib/format";
 
 type PriceStatus = "LIVE" | "MANUAL" | "FALLBACK";
@@ -36,7 +37,8 @@ export function Header({
     <header className="border-b border-[var(--border)] bg-[var(--surface)]/60 backdrop-blur-sm sticky top-0 z-40">
       <div className="mx-auto max-w-6xl px-4 sm:px-6 pt-[max(0.75rem,env(safe-area-inset-top))] pb-3 sm:py-5 flex flex-wrap items-center gap-x-6 gap-y-2">
         <div className="flex flex-col min-w-0 flex-1">
-          <span className="text-[10px] uppercase tracking-widest text-[var(--muted)]">
+          <span className="flex items-center gap-2 text-[10px] uppercase tracking-widest text-[var(--muted)]">
+            <LogoMark size={16} />
             Patrimonio total
           </span>
           <span className="text-2xl sm:text-3xl font-semibold tabular-nums leading-none mt-1 truncate">
