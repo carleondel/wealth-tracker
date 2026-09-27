@@ -63,7 +63,7 @@ export function AllocationTab({
     <div className="space-y-4 sm:space-y-6">
       <Card>
         <CardTitle>Asignación vs objetivo</CardTitle>
-        <div className="mt-4 space-y-3">
+        <div className="mt-4 space-y-4 sm:space-y-3">
           {(Object.keys(CATEGORY_TARGETS) as Category[]).map((cat) => {
             const current = percents[cat];
             const target = targets[cat];
@@ -71,16 +71,19 @@ export function AllocationTab({
             return (
               <div
                 key={cat}
-                className="flex flex-wrap sm:flex-nowrap items-center gap-x-2 sm:gap-x-3 gap-y-2 text-xs"
+                className="grid grid-cols-[auto_minmax(0,1fr)_auto] sm:flex items-center gap-x-2 sm:gap-x-3 gap-y-2 text-xs"
               >
                 <span
                   className="inline-block w-2.5 h-2.5 rounded-sm shrink-0"
                   style={{ background: CATEGORY_COLORS[cat] }}
                 />
-                <span className="flex-1 min-w-0 sm:flex-none sm:w-28 sm:shrink-0 truncate">
+                <span className="min-w-0 sm:w-28 sm:shrink-0 truncate">
                   {cat}
                 </span>
-                <div className="order-last sm:order-none basis-full sm:basis-auto flex-1 relative h-2 bg-[var(--surface-2)] rounded-full overflow-hidden">
+                <span className="sm:order-1 sm:w-14 shrink-0 text-right tabular-nums font-semibold sm:font-normal">
+                  {current.toFixed(1)}%
+                </span>
+                <div className="col-span-3 sm:flex-1 relative h-2 bg-[var(--surface-2)] rounded-full overflow-hidden">
                   <div
                     className="absolute inset-y-0 left-0 rounded-full"
                     style={{
@@ -93,31 +96,30 @@ export function AllocationTab({
                     style={{ left: `${Math.min(100, target)}%` }}
                   />
                 </div>
-                <span className="w-12 sm:w-14 text-right tabular-nums">
-                  {current.toFixed(1)}%
-                </span>
-                <label className="flex items-center gap-1 text-[var(--muted)]">
-                  <span className="hidden sm:inline">obj</span>
-                  <input
-                    type="number"
-                    inputMode="decimal"
-                    value={target}
-                    onChange={(e) =>
-                      setTargets((prev) => ({
-                        ...prev,
-                        [cat]: Number(e.target.value) || 0,
-                      }))
-                    }
-                    className="w-12 bg-[var(--surface-2)] border border-[var(--border)] rounded px-1 py-0.5 text-right tabular-nums"
-                  />
-                  %
-                </label>
-                <span className="w-[4.5rem] shrink-0 flex justify-end">
-                  <Badge variant={deviationVariant(dev)}>
-                    {dev > 0 ? "+" : ""}
-                    {dev.toFixed(1)}pp
-                  </Badge>
-                </span>
+                <div className="col-span-3 sm:order-2 flex items-center justify-between sm:justify-end gap-3 shrink-0">
+                  <label className="flex items-center gap-1 text-[var(--muted)]">
+                    obj
+                    <input
+                      type="number"
+                      inputMode="decimal"
+                      value={target}
+                      onChange={(e) =>
+                        setTargets((prev) => ({
+                          ...prev,
+                          [cat]: Number(e.target.value) || 0,
+                        }))
+                      }
+                      className="w-14 sm:w-12 bg-[var(--surface-2)] border border-[var(--border)] rounded px-1 py-0.5 text-right tabular-nums"
+                    />
+                    %
+                  </label>
+                  <span className="sm:w-[4.5rem] flex justify-end">
+                    <Badge variant={deviationVariant(dev)}>
+                      {dev > 0 ? "+" : ""}
+                      {dev.toFixed(1)}pp
+                    </Badge>
+                  </span>
+                </div>
               </div>
             );
           })}

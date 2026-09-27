@@ -2,7 +2,7 @@
 
 Personal net-worth dashboard. Bring-your-own Supabase, self-hostable in
 minutes. Multi-user with magic-link auth, no signup forms. Live prices without
-API keys. Natural-language journaling powered by an LLM.
+API keys. Form-based journal to log buys, sells and account moves.
 
 ![Demo](./assets/demo.gif)
 
@@ -46,9 +46,8 @@ template or from scratch.
 - 📈 **Live prices from free APIs.** CoinGecko (crypto) and Frankfurter ECB
   rates (USD↔EUR) work with no key. Finnhub (US stocks) needs a free key —
   signup is 30 seconds at [finnhub.io](https://finnhub.io).
-- 🧠 **Natural-language Journal.** Type _"sold 3 MSTR at 180, contributed 200
-  to savings from payroll"_ → the app parses it into structured operations
-  you can review and apply.
+- 📝 **Journal.** Log buys, sells, deposits and withdrawals from a simple
+  form, review the queued operations and apply them in one go.
 - 💰 **Interest accrual** on cash accounts. The app tracks days elapsed ×
   annual rate; you confirm before persisting.
 - 📊 **Six tabs:** Overview · Positions · Allocation (with scenario sliders) ·
@@ -95,13 +94,13 @@ for every position that has a `target_price_usd`.
 
 ### History
 Net-worth evolution from every `UPDATE` snapshot. Contributions logged
-manually or via the Journal show up below.
+from the Journal show up below.
 
 ![History](./assets/07-history.png)
 
-### Journal (NVIDIA NIM)
-Free-text input parsed by Llama 3.3 70B into structured operations. Nothing
-hits the DB without your explicit confirmation.
+### Journal
+Build operations (buy, sell, deposit, withdraw) from a form. They queue up
+for review and nothing hits the DB until you apply them.
 
 ![Journal](./assets/08-journal.png)
 
@@ -114,7 +113,6 @@ hits the DB without your explicit confirmation.
 - **Charts:** Recharts
 - **Icons:** Lucide
 - **Prices:** CoinGecko (crypto, no key) · Finnhub (stocks, free key) · Frankfurter (FX, no key)
-- **LLM (optional):** NVIDIA NIM hosted inference (Llama 3.3 70B)
 - **Hosting:** Vercel (zero-config deploy from this repo)
 
 ---
@@ -155,8 +153,6 @@ Fill in:
   JWT anon key also works)
 - `FINNHUB_API_KEY` *(needed for US stock prices.
   [Get one free in 30s](https://finnhub.io) — free tier covers 60 req/min)*
-- `NVIDIA_API_KEY` *(optional — only the Journal tab needs it.
-  [Get one free](https://build.nvidia.com))*
 
 ### 4. Run
 
@@ -199,8 +195,8 @@ no SQL required.
   modify another user's rows even if they guess IDs.
 - **Public anon key is by design.** Supabase's anon/publishable key ships in
   the browser bundle. Security comes from RLS, not from hiding the key.
-- **Server secrets** (NVIDIA key) live in `.env.local` and never leave the
-  Next.js server. The `/api/journal` route is the only place that uses it.
+- **Server secrets** (Finnhub key) live in `.env.local` and never leave the
+  Next.js server. The `/api/prices` route is the only place that uses it.
 - **No analytics, no tracking, no telemetry.** The app talks to your Supabase
   and the public price feeds, nothing else.
 - **Your data lives in your Supabase project.** This repo is just the UI.
@@ -233,7 +229,6 @@ app/
   page.tsx                   # auth gate (login vs dashboard)
   demo/page.tsx              # public demo, in-memory state
   api/prices/route.ts        # CoinGecko + Stooq + Frankfurter
-  api/journal/route.ts       # NVIDIA NIM → structured ops
 components/
   dashboard.tsx              # state + handlers (live + demo)
   login-screen.tsx
@@ -251,7 +246,7 @@ lib/
   format.ts                  # money/percent formatters
   seed.ts                    # 3 templates with fictitious data
   demo.ts                    # synthetic snapshots for /demo
-  journal-ops.ts             # Op types, validator
+  journal-ops.ts             # Op types, describeOp
 supabase/
   schema.sql
   migrations/

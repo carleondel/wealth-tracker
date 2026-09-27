@@ -12,7 +12,6 @@ their own data. Includes a public `/demo` route backed by fake in-memory data.
 - Recharts (charts) + Lucide (icons)
 - Prices: free public APIs, no keys — CoinGecko (crypto), Finnhub (US stocks),
   Frankfurter (USD/EUR)
-- LLM: NVIDIA NIM hosted API (Llama 3.3 70B) for the natural-language Journal
 
 ## Commands
 - `npm run dev` — dev server (http://localhost:3000)
@@ -23,12 +22,9 @@ their own data. Includes a public `/demo` route backed by fake in-memory data.
 ```
 NEXT_PUBLIC_SUPABASE_URL=https://<project>.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=sb_publishable_...   # or the legacy JWT anon key
-NVIDIA_API_KEY=nvapi-...                            # server-side only
-NVIDIA_MODEL=meta/llama-3.3-70b-instruct           # optional, this is default
 ```
 
 `NEXT_PUBLIC_*` are public-by-design (Supabase RLS enforces security).
-`NVIDIA_API_KEY` never reaches the browser — only the `/api/journal` route uses it.
 
 ## Data model
 SQL lives in `supabase/schema.sql` (base tables) and
@@ -78,9 +74,7 @@ Tables (all rows gated by `owner_id = auth.uid()`):
 - The pencil icon opens the manual-entry modal for overrides.
 
 ## How the Journal works
-- `/api/journal` POST endpoint takes `{text, tickers, assetNames, today}`.
-- Forwards to NVIDIA NIM (`https://integrate.api.nvidia.com/v1/chat/completions`) with a strict JSON-output prompt.
-- Response is validated in `lib/journal-ops.ts` → only well-formed ops survive.
+- `components/manual-op-form.tsx` builds ops (buy, sell, deposit, withdraw) typed in `lib/journal-ops.ts`.
 - The `JournalTab` shows a checkbox list of ops; `applyJournalOps` in the
   dashboard executes the checked ones against Supabase (or local state in demo).
 
@@ -91,7 +85,6 @@ app/
   page.tsx                   # auth gate (login vs dashboard)
   demo/page.tsx              # public demo, demoMode=true
   api/prices/route.ts        # CoinGecko + Finnhub + Frankfurter aggregator
-  api/journal/route.ts       # NVIDIA NIM parser → structured ops
 components/
   dashboard.tsx              # all state + handlers (branches on demoMode)
   login-screen.tsx           # magic link form
@@ -109,7 +102,7 @@ lib/
   format.ts                  # fmtEur, fmtUsd, fmtPct, fmtDateTime
   seed.ts                    # DEMO_POSITIONS / DEMO_MANUAL_ASSETS (fake data)
   demo.ts                    # makeDemo* + generateDemoSnapshots for /demo
-  journal-ops.ts             # Op types, validator, describeOp
+  journal-ops.ts             # Op types, describeOp
 supabase/
   schema.sql                 # base tables
   migrations/
@@ -124,7 +117,6 @@ supabase/
   holdings here — the repo will be published as portfolio.
 - Supabase URL + publishable key are safe to document in the README (public by
   design, RLS enforces per-user access).
-- `NVIDIA_API_KEY` is a secret: server-side only, never exposed in code.
 
 ## Behaviors to enforce
 - Do **not** fetch prices on page load.

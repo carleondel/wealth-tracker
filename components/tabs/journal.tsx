@@ -1,16 +1,12 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { Check, Sparkles, Trash2, Wand2 } from "lucide-react";
+import { useState } from "react";
+import { Check, Trash2 } from "lucide-react";
 import { Card, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ManualOpForm } from "@/components/manual-op-form";
-import {
-  describeOp,
-  type JournalOp,
-  type JournalResponse,
-} from "@/lib/journal-ops";
+import { describeOp, type JournalOp } from "@/lib/journal-ops";
 import type { ManualAsset, Position } from "@/lib/types";
 
 interface Props {
@@ -19,24 +15,12 @@ interface Props {
   onApply: (ops: JournalOp[]) => Promise<{ applied: number; failed: string[] }>;
 }
 
-const EXAMPLES = [
-  "vendí 3 MSTR a 180 y compré 2 NVDA a 440",
-  "aporté 200 al Ahorro Remunerado de nómina",
-  "el saldo de Cuenta Corriente ahora es 2200",
-  "precio medio de NVDA 420 y objetivo 500",
-];
-
 export function JournalTab({ positions, manualAssets, onApply }: Props) {
-  const [text, setText] = useState("");
   const [ops, setOps] = useState<JournalOp[]>([]);
   const [selected, setSelected] = useState<Set<number>>(new Set());
-  const [raw, setRaw] = useState<string | null>(null);
-  const [parsing, setParsing] = useState(false);
   const [applying, setApplying] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [result, setResult] = useState<{ applied: number; failed: string[] } | null>(null);
-
-  const today = useMemo(() => new Date().toISOString().slice(0, 10), []);
 
   function addOp(op: JournalOp) {
     setResult(null);
@@ -54,48 +38,7 @@ export function JournalTab({ positions, manualAssets, onApply }: Props) {
   function clearOps() {
     setOps([]);
     setSelected(new Set());
-    setRaw(null);
     setResult(null);
-  }
-
-  async function parse() {
-    const trimmed = text.trim();
-    if (!trimmed) return;
-    setParsing(true);
-    setErr(null);
-    setResult(null);
-    setRaw(null);
-    try {
-      const res = await fetch("/api/journal", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          text: trimmed,
-          tickers: positions.map((p) => p.ticker),
-          assetNames: manualAssets.map((a) => a.name),
-          today,
-        }),
-      });
-      const data = (await res.json()) as JournalResponse;
-      if (data.error) setErr(data.error);
-      const parsed = data.operations ?? [];
-      if (parsed.length > 0) {
-        setOps((prev) => {
-          const startIdx = prev.length;
-          setSelected((sel) => {
-            const next = new Set(sel);
-            parsed.forEach((_, i) => next.add(startIdx + i));
-            return next;
-          });
-          return [...prev, ...parsed];
-        });
-      }
-      if (data.raw) setRaw(data.raw);
-    } catch (e) {
-      setErr(e instanceof Error ? e.message : String(e));
-    } finally {
-      setParsing(false);
-    }
   }
 
   function toggle(i: number) {
@@ -118,8 +61,6 @@ export function JournalTab({ positions, manualAssets, onApply }: Props) {
       if (r.failed.length === 0) {
         setOps([]);
         setSelected(new Set());
-        setText("");
-        setRaw(null);
       }
     } catch (e) {
       setErr(e instanceof Error ? e.message : String(e));
@@ -136,63 +77,15 @@ export function JournalTab({ positions, manualAssets, onApply }: Props) {
         onAdd={addOp}
       />
 
-      <Card>
-        <div className="flex items-center justify-between">
-          <CardTitle>
-            <span className="inline-flex items-center gap-2">
-              <Sparkles size={12} className="text-[var(--accent)]" /> Journal
-            </span>
-          </CardTitle>
-          <Badge variant="muted">NVIDIA NIM</Badge>
-        </div>
-        <p className="mt-2 text-xs text-[var(--muted)]">
-          Alternativa al form manual. El modelo parsea texto libre a
-          operaciones estructuradas y las añade a la lista de abajo.
-        </p>
-
-        <textarea
-          value={text}
-          onChange={(e) => setText(e.target.value)}
-          rows={4}
-          placeholder="ej. vendí 5 MSTR a 180 y aporté 200 a Revolut de nómina"
-          className="mt-4 w-full bg-[var(--surface-2)] border border-[var(--border)] rounded px-3 py-2.5 text-sm focus:outline-none focus:border-[var(--accent)]"
-        />
-
-        <div className="mt-2 flex flex-wrap gap-1.5">
-          {EXAMPLES.map((ex) => (
-            <button
-              key={ex}
-              onClick={() => setText(ex)}
-              className="text-left text-[11px] px-2 py-1.5 sm:py-1 rounded border border-[var(--border)] text-[var(--muted)] hover:text-[var(--foreground)] hover:border-[var(--muted)]"
-            >
-              {ex}
-            </button>
-          ))}
-        </div>
-
-        <div className="mt-4 flex items-center justify-end">
-          <Button onClick={parse} disabled={parsing || !text.trim()}>
-            <Wand2 size={12} className={parsing ? "animate-pulse" : ""} />
-            {parsing ? "Parseando…" : "Parsear"}
-          </Button>
-        </div>
-      </Card>
-
       {err ? (
         <Card className="border-[var(--danger)]/60">
           <div className="text-sm text-[var(--danger)]">{err}</div>
-          {raw ? (
-            <details className="mt-2 text-xs text-[var(--muted)]">
-              <summary className="cursor-pointer">Respuesta cruda del modelo</summary>
-              <pre className="mt-2 whitespace-pre-wrap">{raw}</pre>
-            </details>
-          ) : null}
         </Card>
       ) : null}
 
       {ops.length > 0 ? (
         <Card>
-          <CardTitle>Operaciones detectadas ({ops.length})</CardTitle>
+          <CardTitle>Operaciones pendientes ({ops.length})</CardTitle>
           <div className="mt-4 space-y-2">
             {ops.map((op, i) => (
               <label

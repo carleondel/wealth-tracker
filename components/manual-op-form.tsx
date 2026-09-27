@@ -85,8 +85,8 @@ export function ManualOpForm({ positions, manualAssets, onAdd }: Props) {
     <Card>
       <CardTitle>Añadir manualmente</CardTitle>
       <p className="mt-2 text-xs text-[var(--muted)]">
-        Sin IA. Construye la operación con dropdowns e inputs y añádela a la
-        lista de abajo.
+        Construye la operación y añádela a la lista de abajo. No se guarda
+        nada hasta que pulses Aplicar.
       </p>
 
       <div className="mt-4 grid grid-cols-2 sm:grid-cols-4 gap-1.5">
