@@ -50,12 +50,6 @@ body {
   display: none;
 }
 
-@media (max-width: 639px) {
-  .scroll-fade-x {
-    mask-image: linear-gradient(to right, black 85%, transparent);
-  }
-}
-
 ::selection {
   background: color-mix(in srgb, var(--accent) 35%, transparent);
 }

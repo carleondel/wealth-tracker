@@ -50,8 +50,9 @@ template or from scratch.
   form, review the queued operations and apply them in one go.
 - 💰 **Interest accrual** on cash accounts. The app tracks days elapsed ×
   annual rate; you confirm before persisting.
-- 📊 **Six tabs:** Overview · Positions · Allocation (with scenario sliders) ·
-  Policy · History · Journal.
+- 📊 **Three tabs:** Resumen (performance + evolution chart) · Cartera
+  (allocation + positions + scenario simulator) · Movimientos (journal +
+  contributions).
 - 🎨 **Dark monospace UI**, responsive down to mobile.
 - 🪟 **Public `/demo` route** with fictitious data + real prices. All
   interactions work but nothing persists. No auth required.
@@ -65,44 +66,30 @@ Magic link only — type your email, click the link in your inbox, you're in.
 
 ![Login](./assets/01-login.png)
 
-### Overview
-At-a-glance net worth + category breakdown, liquidity cushion vs target,
-tactical positions with their exit progress, and the active contribution rule.
+### Resumen
+Market performance for the selected range (contributions excluded) with the
+net-worth evolution chart right below it, in € or %. Then the category
+breakdown, liquidity cushion vs target, and the plan: this month's
+contribution rule plus progress towards every price target.
 
-![Overview](./assets/02-overview.png)
+![Resumen](./assets/02-overview.png)
 
-### Positions
-One card per holding. Click to edit shares, average price, target, role, etc.
-P&L lights up automatically once you fill in `avg_price_usd`.
+### Cartera
+Current vs target allocation per category, then every position and cash
+account in compact rows grouped by category (price, 24h, P&L, weight, value).
+Tap a row to edit it. A collapsible scenario simulator previews BTC / MSTR /
+USD-EUR moves.
 
-![Positions](./assets/03-positions.png)
+![Cartera](./assets/03-positions.png)
 
 ![Edit position modal](./assets/04-edit-position.png)
 
-### Allocation
-Current vs target per category (editable inline), top-5 concentration, and a
-scenario simulator with sliders for BTC / MSTR / USD-EUR to preview drawdowns
-and upside.
-
-![Allocation](./assets/05-allocation.png)
-
-### Policy
-Positions grouped by role with a default rule per role. Price alerts section
-for every position that has a `target_price_usd`.
-
-![Policy](./assets/06-policy.png)
-
-### History
-Net-worth evolution from every `UPDATE` snapshot. Contributions logged
-from the Journal show up below.
-
-![History](./assets/07-history.png)
-
-### Journal
+### Movimientos
 Build operations (buy, sell, deposit, withdraw) from a form. They queue up
-for review and nothing hits the DB until you apply them.
+for review and nothing hits the DB until you apply them. The contribution
+history lives below.
 
-![Journal](./assets/08-journal.png)
+![Movimientos](./assets/08-journal.png)
 
 ---
 
@@ -236,7 +223,7 @@ components/
   update-prices-modal.tsx
   edit-position-modal.tsx
   edit-asset-modal.tsx
-  tabs/{overview,positions,allocation,policy,history,journal}.tsx
+  tabs/{overview,portfolio,journal}.tsx
   ui/{card,badge,button,progress}.tsx
 lib/
   supabase.ts                # browser client
