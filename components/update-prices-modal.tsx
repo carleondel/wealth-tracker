@@ -101,11 +101,11 @@ export function UpdatePricesModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
+      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm"
       onClick={onCancel}
     >
       <div
-        className="w-full max-w-2xl max-h-[88vh] overflow-auto rounded-xl border border-[var(--border)] bg-[var(--surface)] p-6 shadow-2xl"
+        className="w-full max-w-2xl max-h-[90dvh] overflow-auto overscroll-contain rounded-t-2xl sm:rounded-xl border border-[var(--border)] bg-[var(--surface)] p-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:p-6 shadow-2xl sm:m-4"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between mb-4">
@@ -136,14 +136,14 @@ export function UpdatePricesModal({
           />
         </div>
 
-        <div className="grid grid-cols-2 gap-x-4 gap-y-2 mb-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-2 mb-6">
           {positions.map((p) => (
             <label key={p.id} className="flex items-center gap-2 text-xs">
               <span className="w-20 shrink-0 text-[var(--muted)] uppercase">
                 {p.ticker}
               </span>
               <input
-                className="flex-1 min-w-0 bg-[var(--surface-2)] border border-[var(--border)] rounded px-2 py-1 text-[var(--foreground)] focus:outline-none focus:border-[var(--accent)]"
+                className="flex-1 min-w-0 bg-[var(--surface-2)] border border-[var(--border)] rounded px-2 py-1.5 sm:py-1 text-[var(--foreground)] focus:outline-none focus:border-[var(--accent)]"
                 value={rows[p.ticker] ?? ""}
                 onChange={(e) => updateRow(p.ticker, e.target.value)}
                 placeholder="0"
@@ -206,7 +206,8 @@ function FieldNumber({
         step={step}
         value={value}
         onChange={(e) => onChange(Number(e.target.value))}
-        className="bg-[var(--surface-2)] border border-[var(--border)] rounded px-2 py-1.5 text-[var(--foreground)] focus:outline-none focus:border-[var(--accent)]"
+        inputMode="decimal"
+        className="min-w-0 bg-[var(--surface-2)] border border-[var(--border)] rounded px-2 py-1.5 text-[var(--foreground)] focus:outline-none focus:border-[var(--accent)]"
       />
     </label>
   );

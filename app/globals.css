@@ -34,6 +34,28 @@ body {
   font-variant-numeric: tabular-nums;
 }
 
+/* iOS Safari zooms into inputs under 16px on focus */
+@media (max-width: 639px) {
+  input,
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
+}
+
+.no-scrollbar {
+  scrollbar-width: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+@media (max-width: 639px) {
+  .scroll-fade-x {
+    mask-image: linear-gradient(to right, black 85%, transparent);
+  }
+}
+
 ::selection {
   background: color-mix(in srgb, var(--accent) 35%, transparent);
 }

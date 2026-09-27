@@ -78,15 +78,15 @@ export function HistoryTab({ snapshots, contributions }: Props) {
     dataMax <= 0 ? 0 : dataMin >= 0 ? 1 : dataMax / (dataMax - dataMin);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       <Card>
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <CardTitle>Evolución del patrimonio</CardTitle>
-          <div className="flex flex-wrap items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3 min-w-0">
             <div className="inline-flex rounded border border-[var(--border)] overflow-hidden">
               <button
                 onClick={() => setMode("value")}
-                className={`px-2.5 py-1 text-[10px] uppercase tracking-wider ${
+                className={`px-3 py-1.5 sm:px-2.5 sm:py-1 text-[10px] uppercase tracking-wider ${
                   mode === "value"
                     ? "bg-[var(--surface-2)] text-[var(--foreground)]"
                     : "text-[var(--muted)] hover:text-[var(--foreground)]"
@@ -96,7 +96,7 @@ export function HistoryTab({ snapshots, contributions }: Props) {
               </button>
               <button
                 onClick={() => setMode("pct")}
-                className={`px-2.5 py-1 text-[10px] uppercase tracking-wider border-l border-[var(--border)] ${
+                className={`px-3 py-1.5 sm:px-2.5 sm:py-1 text-[10px] uppercase tracking-wider border-l border-[var(--border)] ${
                   mode === "pct"
                     ? "bg-[var(--surface-2)] text-[var(--foreground)]"
                     : "text-[var(--muted)] hover:text-[var(--foreground)]"
@@ -105,12 +105,12 @@ export function HistoryTab({ snapshots, contributions }: Props) {
                 Rendimiento
               </button>
             </div>
-            <div className="flex flex-wrap gap-1">
+            <div className="flex gap-1 overflow-x-auto no-scrollbar scroll-fade-x -mx-1 px-1 max-w-full">
               {RANGES.map((r) => (
                 <button
                   key={r}
                   onClick={() => setRange(r)}
-                  className={`px-2 py-0.5 text-[10px] uppercase tracking-wider rounded transition-colors ${
+                  className={`shrink-0 px-2.5 py-1.5 sm:px-2 sm:py-0.5 text-[10px] uppercase tracking-wider rounded transition-colors ${
                     range === r
                       ? "bg-[var(--surface-2)] text-[var(--foreground)]"
                       : "text-[var(--muted)] hover:text-[var(--foreground)]"
@@ -136,7 +136,7 @@ export function HistoryTab({ snapshots, contributions }: Props) {
           </div>
         ) : null}
 
-        <div className="mt-4 h-72">
+        <div className="mt-4 h-56 sm:h-72 -ml-2 sm:ml-0">
           {chartData.length === 0 ? (
             <div className="h-full flex items-center justify-center text-xs text-[var(--muted)]">
               Sin datos en este rango. Pulsa UPDATE para acumular historia.
@@ -174,11 +174,13 @@ export function HistoryTab({ snapshots, contributions }: Props) {
                 <XAxis
                   dataKey="date"
                   stroke="var(--muted)"
-                  tick={{ fontSize: 11 }}
+                  tick={{ fontSize: 10 }}
+                  minTickGap={24}
                 />
                 <YAxis
                   stroke="var(--muted)"
-                  tick={{ fontSize: 11 }}
+                  tick={{ fontSize: 10 }}
+                  width={44}
                   tickFormatter={(v: number) =>
                     mode === "value" ? `${(v / 1000).toFixed(0)}k` : `${v.toFixed(1)}%`
                   }
@@ -240,17 +242,19 @@ export function HistoryTab({ snapshots, contributions }: Props) {
             contributions.map((c) => (
               <div
                 key={c.id}
-                className="py-2 flex items-center justify-between text-sm"
+                className="py-2 flex items-center justify-between gap-3 text-sm"
               >
-                <div className="flex items-center gap-3">
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-1 min-w-0">
                   <Badge variant="muted">{c.type}</Badge>
-                  <span>{fmtDate(c.date)}</span>
+                  <span className="whitespace-nowrap">{fmtDate(c.date)}</span>
                   {c.note ? (
-                    <span className="text-[var(--muted)]">· {c.note}</span>
+                    <span className="text-[var(--muted)] text-xs sm:text-sm break-words min-w-0">
+                      · {c.note}
+                    </span>
                   ) : null}
                 </div>
                 <span
-                  className={`tabular-nums ${
+                  className={`shrink-0 tabular-nums ${
                     c.amount_eur >= 0
                       ? "text-[var(--accent)]"
                       : "text-[var(--danger)]"

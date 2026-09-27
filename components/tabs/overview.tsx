@@ -78,16 +78,16 @@ export function OverviewTab({
 
       <Card className="lg:col-span-2">
         <CardTitle>Distribución por categoría</CardTitle>
-        <div className="mt-4 grid grid-cols-1 sm:grid-cols-[1fr,1fr] gap-6 items-center">
-          <div className="h-56 relative">
+        <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6 items-center">
+          <div className="h-48 sm:h-56 relative">
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
                 <Pie
                   data={donutData}
                   dataKey="value"
                   nameKey="name"
-                  innerRadius={62}
-                  outerRadius={92}
+                  innerRadius="68%"
+                  outerRadius="100%"
                   stroke="var(--surface)"
                   strokeWidth={2}
                 >
@@ -155,11 +155,11 @@ export function OverviewTab({
                     className="inline-block w-2.5 h-2.5 rounded-sm"
                     style={{ background: d.color }}
                   />
-                  <span className="flex-1">{d.name}</span>
+                  <span className="flex-1 min-w-0 truncate">{d.name}</span>
                   <span className="tabular-nums text-[var(--muted)]">
                     {pct.toFixed(1)}%
                   </span>
-                  <span className="tabular-nums w-24 text-right">
+                  <span className="tabular-nums w-20 sm:w-24 text-right">
                     {fmtEur(d.value)}
                   </span>
                 </li>
@@ -204,7 +204,7 @@ export function OverviewTab({
 
       <Card className="lg:col-span-3">
         <CardTitle>Regla de aportación activa</CardTitle>
-        <div className="mt-3 flex flex-wrap items-end gap-6">
+        <div className="mt-3 flex flex-wrap items-end gap-x-6 gap-y-3">
           <div>
             <div className="text-xs text-[var(--muted)]">Destino este mes</div>
             <div className="text-lg font-semibold capitalize mt-1">
@@ -217,7 +217,7 @@ export function OverviewTab({
               {fmtEur(rule.amountEur)}
             </div>
           </div>
-          <div className="flex-1 min-w-[200px] text-xs text-[var(--muted)]">
+          <div className="basis-full sm:basis-auto flex-1 sm:min-w-[200px] text-xs text-[var(--muted)]">
             {rule.reason}
           </div>
         </div>
@@ -272,12 +272,12 @@ function PnLCard({
     <Card>
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <CardTitle>P&L · mercado</CardTitle>
-        <div className="flex gap-1 flex-wrap">
+        <div className="flex gap-1 overflow-x-auto no-scrollbar scroll-fade-x -mx-1 px-1">
           {RANGES.map((r) => (
             <button
               key={r}
               onClick={() => setRange(r)}
-              className={`px-2 py-0.5 text-[10px] uppercase tracking-wider rounded transition-colors ${
+              className={`shrink-0 px-2.5 py-1.5 sm:px-2 sm:py-0.5 text-[10px] uppercase tracking-wider rounded transition-colors ${
                 range === r
                   ? "bg-[var(--surface-2)] text-[var(--foreground)]"
                   : "text-[var(--muted)] hover:text-[var(--foreground)]"
@@ -292,7 +292,7 @@ function PnLCard({
       {result ? (
         <div className="mt-4">
           <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1">
-            <div className={`text-3xl font-semibold tabular-nums ${color}`}>
+            <div className={`text-2xl sm:text-3xl font-semibold tabular-nums ${color}`}>
               {sign}
               {fmtEur(result.marketDelta)}
             </div>
@@ -340,7 +340,7 @@ function TacticalRow({
   return (
     <div>
       <div className="flex items-center justify-between text-sm">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 min-w-0">
           <span className="font-semibold">{position.ticker}</span>
           <span className="text-[var(--muted)] text-xs truncate max-w-[120px]">
             {position.name}

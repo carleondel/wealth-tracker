@@ -41,7 +41,7 @@ export function PositionsTab({
   const sorted = sortByValueDesc(positions, prices, usdEur);
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6 sm:space-y-8">
       <section>
         <div className="flex items-center justify-between mb-3">
           <h2 className="text-xs uppercase tracking-widest text-[var(--muted)]">
@@ -131,7 +131,7 @@ function PositionCard({
   return (
     <button
       onClick={onClick}
-      className="group flex flex-col gap-3 rounded-xl border border-[var(--border)] bg-[var(--surface)] p-5 text-left hover:border-[var(--muted)] transition-colors"
+      className="group flex flex-col gap-3 rounded-xl border border-[var(--border)] bg-[var(--surface)] p-4 sm:p-5 text-left hover:border-[var(--muted)] active:border-[var(--muted)] transition-colors"
     >
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-center gap-3 min-w-0">
@@ -169,7 +169,7 @@ function PositionCard({
         </div>
       </div>
 
-      <div className="flex items-end justify-between">
+      <div className="flex items-end justify-between gap-3">
         <div>
           <div className="text-xs text-[var(--muted)]">Valor</div>
           <div className="text-base font-semibold tabular-nums">
@@ -197,7 +197,7 @@ function PositionCard({
       <Progress value={pct} color={CATEGORY_COLORS[position.category]} />
 
       {hasTarget ? (
-        <div className="flex items-center justify-between text-[11px] text-[var(--muted)]">
+        <div className="flex items-center justify-between gap-2 text-[11px] text-[var(--muted)]">
           <span>Objetivo {fmtUsd(position.target_price_usd ?? 0, 0)}</span>
           <Badge variant={targetReached ? "accent" : "warning"}>
             {targetReached
@@ -224,7 +224,7 @@ function ManualAssetCard({
   return (
     <button
       onClick={onClick}
-      className="flex flex-col gap-3 rounded-xl border border-[var(--border)] bg-[var(--surface)] p-5 text-left hover:border-[var(--muted)] transition-colors"
+      className="flex flex-col gap-3 rounded-xl border border-[var(--border)] bg-[var(--surface)] p-4 sm:p-5 text-left hover:border-[var(--muted)] active:border-[var(--muted)] transition-colors"
     >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
