@@ -1,18 +1,16 @@
 "use client";
 
 import { Pencil, RefreshCw } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { fmtEur, fmtDateTime } from "@/lib/format";
+import { fmtEur, fmtDateTime, fmtPct } from "@/lib/format";
 
 type PriceStatus = "LIVE" | "MANUAL" | "FALLBACK";
 
 interface Props {
   totalEur: number;
+  dayChange: { eur: number; pct: number } | null;
   usdEur: number;
   btcUsd: number;
-  onEditUsdEur: (value: number) => void;
-  onEditBtcUsd: (value: number) => void;
   fxStatus: PriceStatus;
   btcStatus: PriceStatus;
   lastUpdated: string | null;
@@ -23,10 +21,9 @@ interface Props {
 
 export function Header({
   totalEur,
+  dayChange,
   usdEur,
   btcUsd,
-  onEditUsdEur,
-  onEditBtcUsd,
   fxStatus,
   btcStatus,
   lastUpdated,
@@ -34,55 +31,52 @@ export function Header({
   onManualEdit,
   updating,
 }: Props) {
+  const up = (dayChange?.eur ?? 0) >= 0;
   return (
     <header className="border-b border-[var(--border)] bg-[var(--surface)]/60 backdrop-blur-sm sticky top-0 z-40">
-      <div className="mx-auto max-w-6xl px-4 sm:px-6 pt-[max(0.75rem,env(safe-area-inset-top))] pb-3 sm:py-5 flex flex-wrap items-end gap-x-8 gap-y-3">
-        <div className="flex flex-col min-w-0 flex-1 sm:flex-none">
+      <div className="mx-auto max-w-6xl px-4 sm:px-6 pt-[max(0.75rem,env(safe-area-inset-top))] pb-3 sm:py-5 flex flex-wrap items-center gap-x-6 gap-y-2">
+        <div className="flex flex-col min-w-0 flex-1">
           <span className="text-[10px] uppercase tracking-widest text-[var(--muted)]">
             Patrimonio total
           </span>
           <span className="text-2xl sm:text-3xl font-semibold tabular-nums leading-none mt-1 truncate">
             {fmtEur(totalEur)}
           </span>
+          {dayChange ? (
+            <span
+              className={`mt-1 text-xs tabular-nums ${
+                up ? "text-[var(--accent)]" : "text-[var(--danger)]"
+              }`}
+            >
+              {up ? "+" : ""}
+              {fmtEur(dayChange.eur)} ({fmtPct(dayChange.pct)}){" "}
+              <span className="text-[var(--muted)]">hoy</span>
+            </span>
+          ) : null}
         </div>
 
-        <div className="order-3 sm:order-2 w-full sm:w-auto sm:ml-auto grid grid-cols-2 gap-3 sm:flex sm:items-end">
-          <FxField
-            label="USD/EUR"
-            value={usdEur}
-            step={0.0001}
-            status={fxStatus}
-            onChange={onEditUsdEur}
-          />
-          <FxField
-            label="BTC/USD"
-            value={btcUsd}
-            step={1}
-            status={btcStatus}
-            onChange={onEditBtcUsd}
-          />
+        <div className="order-last sm:order-none basis-full sm:basis-auto flex gap-2">
+          <RateChip label="USD/EUR" value={usdEur.toFixed(4)} status={fxStatus} onClick={onManualEdit} />
+          <RateChip label="BTC" value={`$${Math.round(btcUsd).toLocaleString("en-US")}`} status={btcStatus} onClick={onManualEdit} />
         </div>
 
-        <div className="order-2 sm:order-3 flex flex-col items-end gap-1 shrink-0">
+        <div className="flex flex-col items-end gap-1 shrink-0">
           <div className="flex items-center gap-2">
             <button
               onClick={onManualEdit}
-              className="flex items-center justify-center size-9 sm:size-auto sm:p-1.5 text-[var(--muted)] hover:text-[var(--foreground)] rounded-md border border-[var(--border)] hover:border-[var(--muted)]"
+              className="flex items-center justify-center size-9 sm:size-8 text-[var(--muted)] hover:text-[var(--foreground)] rounded-md border border-[var(--border)] hover:border-[var(--muted)]"
               title="Editar precios manualmente"
-              aria-label="Manual"
+              aria-label="Editar precios manualmente"
             >
               <Pencil size={12} />
             </button>
-            <Button onClick={onUpdate} disabled={updating} className="h-9 sm:h-auto">
-              <RefreshCw
-                size={12}
-                className={updating ? "animate-spin" : ""}
-              />
+            <Button onClick={onUpdate} disabled={updating} className="h-9 sm:h-8">
+              <RefreshCw size={12} className={updating ? "animate-spin" : ""} />
               {updating ? "Fetching" : "Update"}
             </Button>
           </div>
           <span className="text-[10px] text-[var(--muted)]">
-            {lastUpdated ? fmtDateTime(lastUpdated) : "no snapshots yet"}
+            {lastUpdated ? fmtDateTime(lastUpdated) : "sin snapshots"}
           </span>
         </div>
       </div>
@@ -90,35 +84,32 @@ export function Header({
   );
 }
 
-function FxField({
+function RateChip({
   label,
   value,
-  step,
   status,
-  onChange,
+  onClick,
 }: {
   label: string;
-  value: number;
-  step: number;
+  value: string;
   status: PriceStatus;
-  onChange: (v: number) => void;
+  onClick: () => void;
 }) {
-  const variant =
-    status === "LIVE" ? "accent" : status === "MANUAL" ? "warning" : "muted";
+  const dot =
+    status === "LIVE"
+      ? "bg-[var(--accent)]"
+      : status === "MANUAL"
+        ? "bg-[var(--warning)]"
+        : "bg-[var(--muted)]";
   return (
-    <label className="flex flex-col gap-1 text-[10px] min-w-0">
-      <span className="flex items-center gap-2 uppercase tracking-wider text-[var(--muted)]">
-        {label}
-        <Badge variant={variant}>{status}</Badge>
-      </span>
-      <input
-        type="number"
-        inputMode="decimal"
-        step={step}
-        value={value}
-        onChange={(e) => onChange(Number(e.target.value))}
-        className="w-full sm:w-24 bg-[var(--surface-2)] border border-[var(--border)] rounded px-2 py-1 text-xs text-[var(--foreground)] focus:outline-none focus:border-[var(--accent)]"
-      />
-    </label>
+    <button
+      onClick={onClick}
+      title={`${label} · ${status} — pulsa para editar`}
+      className="inline-flex items-center gap-1.5 rounded-full border border-[var(--border)] px-2.5 py-1 text-[10px] tabular-nums hover:border-[var(--muted)]"
+    >
+      <span className={`size-1.5 rounded-full ${dot}`} />
+      <span className="uppercase tracking-wider text-[var(--muted)]">{label}</span>
+      <span>{value}</span>
+    </button>
   );
 }

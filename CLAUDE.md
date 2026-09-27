@@ -58,10 +58,15 @@ Tables (all rows gated by `owner_id = auth.uid()`):
 
 ## UI guidelines
 - Dark theme, background `#080C18`, monospace font (Geist Mono).
-- Six tabs: **Overview · Positions · Allocation · Policy · History · Journal**.
-- Persistent top header: total EUR · USD/EUR · BTC/USD · UPDATE + pencil · last update.
+- Three tabs: **Resumen** (`overview.tsx`: P&L + evolution chart, distribution,
+  liquidity, plan) · **Cartera** (`portfolio.tsx`: allocation vs target, positions
+  grouped by category, collapsible simulator) · **Movimientos** (`journal.tsx`:
+  manual ops + contributions history).
+- Persistent top header: total EUR + today's change · USD/EUR and BTC chips · UPDATE + pencil · last update.
 - Values displayed in EUR. Asset prices shown in USD.
-- FX/BTC editable inline (badges: LIVE / FALLBACK / MANUAL).
+- FX/BTC chips show a status dot (LIVE / FALLBACK / MANUAL); clicking them opens
+  the pencil modal to override.
+- Role explanations live in `ROLE_INFO` (`lib/policy.ts`) and show as tooltips.
 
 ## How prices work
 - Prices are **never** auto-fetched on page load.
@@ -92,12 +97,12 @@ components/
   update-prices-modal.tsx    # manual price entry fallback
   edit-position-modal.tsx    # CRUD positions
   edit-asset-modal.tsx       # CRUD manual assets + apply interest
-  tabs/{overview,positions,allocation,policy,history,journal}.tsx
+  tabs/{overview,portfolio,journal}.tsx
   ui/{card,badge,button,progress}.tsx
 lib/
   supabase.ts                # client
   types.ts                   # Position, ManualAsset, Snapshot, Contribution…
-  policy.ts                  # POLICY constants + category colors/targets
+  policy.ts                  # POLICY constants, category colors/targets, ROLE_INFO
   calculations.ts            # P&L, breakdown, deviation, accrued interest
   format.ts                  # fmtEur, fmtUsd, fmtPct, fmtDateTime
   seed.ts                    # DEMO_POSITIONS / DEMO_MANUAL_ASSETS (fake data)

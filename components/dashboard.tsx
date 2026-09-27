@@ -1,17 +1,14 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Database, Info, LogOut } from "lucide-react";
+import { Database, Info, LogOut, X } from "lucide-react";
 import { Header } from "@/components/header";
 import { UpdatePricesModal } from "@/components/update-prices-modal";
 import { EditPositionModal, type PositionPayload } from "@/components/edit-position-modal";
 import { EditAssetModal, type AssetPayload } from "@/components/edit-asset-modal";
 import { DashboardSkeleton } from "@/components/ui/skeleton";
 import { OverviewTab } from "@/components/tabs/overview";
-import { PositionsTab } from "@/components/tabs/positions";
-import { AllocationTab } from "@/components/tabs/allocation";
-import { PolicyTab } from "@/components/tabs/policy";
-import { HistoryTab } from "@/components/tabs/history";
+import { PortfolioTab } from "@/components/tabs/portfolio";
 import { JournalTab } from "@/components/tabs/journal";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -19,6 +16,7 @@ import { supabase } from "@/lib/supabase";
 import {
   getAccruedInterest,
   getCategoryBreakdown,
+  getDayChange,
   getTotalEur,
 } from "@/lib/calculations";
 import {
@@ -43,15 +41,12 @@ import type {
   Snapshot,
 } from "@/lib/types";
 
-type Tab = "overview" | "positions" | "allocation" | "policy" | "history" | "journal";
+type Tab = "overview" | "portfolio" | "journal";
 
 const TABS: Array<{ id: Tab; label: string }> = [
-  { id: "overview", label: "Overview" },
-  { id: "positions", label: "Positions" },
-  { id: "allocation", label: "Allocation" },
-  { id: "policy", label: "Policy" },
-  { id: "history", label: "History" },
-  { id: "journal", label: "Journal" },
+  { id: "overview", label: "Resumen" },
+  { id: "portfolio", label: "Cartera" },
+  { id: "journal", label: "Movimientos" },
 ];
 
 const DEFAULT_USD_EUR = 0.92;
@@ -89,6 +84,7 @@ export function Dashboard({ userId, userEmail, demoMode = false }: Props) {
   const [updating, setUpdating] = useState(false);
   const [seeding, setSeeding] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  const [demoBannerOpen, setDemoBannerOpen] = useState(true);
 
   const loadAll = useCallback(async () => {
     setLoading(true);
@@ -187,6 +183,10 @@ export function Dashboard({ userId, userEmail, demoMode = false }: Props) {
     [positions, manualAssets, prices, usdEur],
   );
   const totalEur = useMemo(() => getTotalEur(breakdown), [breakdown]);
+  const dayChange = useMemo(
+    () => getDayChange(positions, prices, usdEur, totalEur),
+    [positions, prices, usdEur, totalEur],
+  );
 
   const persistSnapshot = useCallback(
     async (
@@ -704,17 +704,9 @@ export function Dashboard({ userId, userEmail, demoMode = false }: Props) {
     <>
       <Header
         totalEur={totalEur}
+        dayChange={dayChange}
         usdEur={usdEur}
         btcUsd={btcUsd}
-        onEditUsdEur={(v) => {
-          setUsdEur(v);
-          setFxSource("MANUAL");
-        }}
-        onEditBtcUsd={(v) => {
-          setBtcUsd(v);
-          setBtcSource("MANUAL");
-          setPrices((prev) => ({ ...prev, "BTC-USD": { price: v, change: 0 } }));
-        }}
         fxStatus={fxSource}
         btcStatus={btcSource}
         lastUpdated={latestSnapshotIso}
@@ -725,18 +717,11 @@ export function Dashboard({ userId, userEmail, demoMode = false }: Props) {
 
       <main className="mx-auto max-w-6xl px-4 sm:px-6 py-4 sm:py-6 pb-[max(1.5rem,env(safe-area-inset-bottom))] flex-1 w-full">
         <div className="flex items-center justify-between mb-4 sm:mb-6 gap-2 sm:gap-4 border-b border-[var(--border)]">
-          <nav className="flex gap-0.5 sm:gap-1 overflow-x-auto no-scrollbar scroll-fade-x -mb-px min-w-0 flex-1 -ml-2 pr-8 sm:ml-0 sm:pr-0">
+          <nav className="flex gap-0.5 sm:gap-1 overflow-x-auto no-scrollbar -mb-px min-w-0 flex-1 -ml-2 sm:ml-0">
             {TABS.map((t) => (
               <button
                 key={t.id}
-                onClick={(e) => {
-                  setTab(t.id);
-                  e.currentTarget.scrollIntoView({
-                    behavior: "smooth",
-                    block: "nearest",
-                    inline: "center",
-                  });
-                }}
+                onClick={() => setTab(t.id)}
                 className={`shrink-0 px-2.5 sm:px-3 py-3 text-xs uppercase tracking-wider border-b-2 transition-colors whitespace-nowrap ${
                   tab === t.id
                     ? "border-[var(--accent)] text-[var(--foreground)]"
@@ -769,16 +754,22 @@ export function Dashboard({ userId, userEmail, demoMode = false }: Props) {
           </div>
         </div>
 
-        {demoMode ? (
-          <div className="mb-4 rounded-md border border-[var(--accent)]/50 bg-[color-mix(in_srgb,var(--accent)_10%,transparent)] px-4 py-2.5 flex items-start gap-3 text-xs">
-            <Info size={14} className="text-[var(--accent)] mt-0.5 shrink-0" />
-            <div>
-              <strong className="text-[var(--foreground)]">Modo demo.</strong>
-              {" "}Datos de ejemplo ficticios, precios reales. Todos los cambios
-              (editar, aportar, Journal) funcionan pero no persisten — se
-              pierden al recargar. Para uso personal, sal del demo e inicia
-              sesión.
-            </div>
+        {demoMode && demoBannerOpen ? (
+          <div className="mb-4 rounded-md border border-[var(--accent)]/40 bg-[color-mix(in_srgb,var(--accent)_8%,transparent)] pl-3 pr-1 py-1 flex items-center gap-2 text-xs">
+            <Info size={13} className="text-[var(--accent)] shrink-0" />
+            <span className="flex-1 min-w-0">
+              <strong className="text-[var(--foreground)]">Demo</strong>
+              <span className="text-[var(--muted)]">
+                {" "}· datos ficticios, precios reales. Nada se guarda.
+              </span>
+            </span>
+            <button
+              onClick={() => setDemoBannerOpen(false)}
+              className="p-2 text-[var(--muted)] hover:text-[var(--foreground)] shrink-0"
+              aria-label="Cerrar aviso"
+            >
+              <X size={13} />
+            </button>
           </div>
         ) : null}
 
@@ -829,7 +820,7 @@ export function Dashboard({ userId, userEmail, demoMode = false }: Props) {
             <div className="text-center mt-6">
               <button
                 onClick={() => {
-                  setTab("positions");
+                  setTab("portfolio");
                   setEditingPosition(null);
                 }}
                 className="text-xs text-[var(--muted)] hover:text-[var(--foreground)] underline underline-offset-2"
@@ -856,12 +847,13 @@ export function Dashboard({ userId, userEmail, demoMode = false }: Props) {
                 contributions={contributions}
               />
             )}
-            {tab === "positions" && (
-              <PositionsTab
+            {tab === "portfolio" && (
+              <PortfolioTab
                 positions={positions}
                 manualAssets={manualAssets}
                 prices={prices}
                 usdEur={usdEur}
+                btcUsd={btcUsd}
                 totalEur={totalEur}
                 onAddPosition={() => setEditingPosition(null)}
                 onEditPosition={(p) => setEditingPosition(p)}
@@ -869,32 +861,11 @@ export function Dashboard({ userId, userEmail, demoMode = false }: Props) {
                 onEditAsset={(a) => setEditingAsset(a)}
               />
             )}
-            {tab === "allocation" && (
-              <AllocationTab
-                positions={positions}
-                manualAssets={manualAssets}
-                prices={prices}
-                usdEur={usdEur}
-                btcUsd={btcUsd}
-              />
-            )}
-            {tab === "policy" && (
-              <PolicyTab
-                breakdown={breakdown}
-                positions={positions}
-                prices={prices}
-              />
-            )}
-            {tab === "history" && (
-              <HistoryTab
-                snapshots={snapshots}
-                contributions={contributions}
-              />
-            )}
             {tab === "journal" && (
               <JournalTab
                 positions={positions}
                 manualAssets={manualAssets}
+                contributions={contributions}
                 onApply={applyJournalOps}
               />
             )}

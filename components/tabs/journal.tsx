@@ -7,15 +7,17 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ManualOpForm } from "@/components/manual-op-form";
 import { describeOp, type JournalOp } from "@/lib/journal-ops";
-import type { ManualAsset, Position } from "@/lib/types";
+import { fmtDate, fmtEur } from "@/lib/format";
+import type { Contribution, ManualAsset, Position } from "@/lib/types";
 
 interface Props {
   positions: Position[];
   manualAssets: ManualAsset[];
+  contributions: Contribution[];
   onApply: (ops: JournalOp[]) => Promise<{ applied: number; failed: string[] }>;
 }
 
-export function JournalTab({ positions, manualAssets, onApply }: Props) {
+export function JournalTab({ positions, manualAssets, contributions, onApply }: Props) {
   const [ops, setOps] = useState<JournalOp[]>([]);
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [applying, setApplying] = useState(false);
@@ -153,6 +155,45 @@ export function JournalTab({ positions, manualAssets, onApply }: Props) {
           ) : null}
         </Card>
       ) : null}
+
+      <Card>
+        <div className="flex items-center justify-between gap-2">
+          <CardTitle>Aportaciones</CardTitle>
+          <Badge variant="muted">{contributions.length}</Badge>
+        </div>
+        <p className="mt-1 text-xs text-[var(--muted)]">
+          Dinero externo (nómina, ahorro nuevo…). No cuenta como rendimiento.
+        </p>
+        <div className="mt-3 divide-y divide-[var(--border)]">
+          {contributions.length === 0 ? (
+            <div className="py-3 text-xs text-[var(--muted)]">
+              Sin aportaciones. Marca &quot;dinero externo&quot; al añadir un depósito.
+            </div>
+          ) : (
+            contributions.map((c) => (
+              <div key={c.id} className="py-2.5 flex items-center justify-between gap-3 text-sm">
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2">
+                    <span className="whitespace-nowrap">{fmtDate(c.date)}</span>
+                    <Badge variant="muted">{c.type}</Badge>
+                  </div>
+                  {c.note ? (
+                    <div className="text-xs text-[var(--muted)] truncate">{c.note}</div>
+                  ) : null}
+                </div>
+                <span
+                  className={`shrink-0 tabular-nums ${
+                    c.amount_eur >= 0 ? "text-[var(--accent)]" : "text-[var(--danger)]"
+                  }`}
+                >
+                  {c.amount_eur >= 0 ? "+" : ""}
+                  {fmtEur(c.amount_eur)}
+                </span>
+              </div>
+            ))
+          )}
+        </div>
+      </Card>
     </div>
   );
 }

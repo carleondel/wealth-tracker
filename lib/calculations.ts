@@ -304,35 +304,26 @@ export function getHistoryChartData(
   });
 }
 
-/** Sort positions by current EUR value, DESC. */
-export function sortByValueDesc(
-  positions: Position[],
-  prices: PriceMap,
-  usdEur: number,
-): Position[] {
-  return [...positions].sort(
-    (a, b) =>
-      getPositionValueEur(b, prices, usdEur) -
-      getPositionValueEur(a, prices, usdEur),
-  );
-}
-
-/** Top-N concentration: returns positions sorted with their % of total. */
-export function getTopConcentration(
+/**
+ * Today's EUR move across priced positions, derived from each ticker's 24h /
+ * intraday % change. Manual assets don't move intraday.
+ */
+export function getDayChange(
   positions: Position[],
   prices: PriceMap,
   usdEur: number,
   totalEur: number,
-  n = 5,
-): Array<{ position: Position; valueEur: number; pct: number }> {
-  return sortByValueDesc(positions, prices, usdEur)
-    .slice(0, n)
-    .map((position) => {
-      const valueEur = getPositionValueEur(position, prices, usdEur);
-      return {
-        position,
-        valueEur,
-        pct: totalEur > 0 ? (valueEur / totalEur) * 100 : 0,
-      };
-    });
+): { eur: number; pct: number } | null {
+  let eur = 0;
+  let any = false;
+  for (const p of positions) {
+    const change = prices[p.ticker]?.change;
+    if (change == null || change <= -100) continue;
+    const value = getPositionValueEur(p, prices, usdEur);
+    eur += value * (change / (100 + change));
+    any = true;
+  }
+  if (!any) return null;
+  const base = totalEur - eur;
+  return { eur, pct: base > 0 ? (eur / base) * 100 : 0 };
 }
