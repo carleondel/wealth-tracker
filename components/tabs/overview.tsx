@@ -89,7 +89,7 @@ function rangeLabel(r: PnLRange): string {
 type Mode = "value" | "pct";
 
 const pill = (active: boolean) =>
-  `shrink-0 px-2.5 py-1.5 sm:px-2 sm:py-1 text-[10px] uppercase tracking-wider rounded transition-colors ${
+  `shrink-0 px-1.5 py-1.5 sm:px-2 sm:py-1 text-[10px] uppercase tracking-wider rounded transition-colors ${
     active
       ? "bg-[var(--surface-2)] text-[var(--foreground)]"
       : "text-[var(--muted)] hover:text-[var(--foreground)]"
@@ -261,7 +261,7 @@ function PerformanceCard({
             )}
           </div>
 
-          <div className="mt-3 flex gap-1 overflow-x-auto no-scrollbar sm:justify-center">
+          <div className="mt-3 flex gap-0.5 sm:gap-1 overflow-x-auto no-scrollbar justify-between sm:justify-center">
             {RANGES.map((r) => (
               <button key={r} onClick={() => setRange(r)} className={pill(range === r)}>
                 {rangeLabel(r)}
