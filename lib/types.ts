@@ -13,7 +13,16 @@ export type Role =
   | "caja"
   | "residual";
 
-export type Platform = "Binance" | "IBKR" | "Wallet" | "Revolut" | "BBVA";
+export const PLATFORMS = [
+  "Kraken",
+  "Binance",
+  "IBKR",
+  "Wallet",
+  "Revolut",
+  "BBVA",
+] as const;
+
+export type Platform = (typeof PLATFORMS)[number];
 
 export interface Position {
   id: string;

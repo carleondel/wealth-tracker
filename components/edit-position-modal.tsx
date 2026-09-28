@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { Trash2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import type { Category, Platform, Position, Role } from "@/lib/types";
+import { PLATFORMS, type Category, type Platform, type Position, type Role } from "@/lib/types";
 
 const CATEGORIES: Category[] = [
   "Crypto",
@@ -12,7 +12,6 @@ const CATEGORIES: Category[] = [
   "Equities",
   "Liquidez",
 ];
-const PLATFORMS: Platform[] = ["Binance", "IBKR", "Wallet", "Revolut", "BBVA"];
 const ROLES: Role[] = [
   "core",
   "tactica",
