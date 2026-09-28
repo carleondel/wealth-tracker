@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { fmtEur } from "@/lib/format";
 import { getAccruedInterest } from "@/lib/calculations";
-import type { Category, ManualAsset, Platform } from "@/lib/types";
+import { PLATFORMS, type Category, type ManualAsset, type Platform } from "@/lib/types";
 
 const CATEGORIES: Category[] = [
   "Liquidez",
@@ -15,7 +15,6 @@ const CATEGORIES: Category[] = [
   "Gold Miners",
   "Equities",
 ];
-const PLATFORMS: Platform[] = ["Revolut", "BBVA", "Binance", "IBKR", "Wallet"];
 
 export interface AssetPayload {
   name: string;
