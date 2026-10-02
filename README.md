@@ -123,7 +123,7 @@ npm install
 
 1. [supabase.com](https://supabase.com) → **New project**.
 2. **SQL Editor** → run `supabase/schema.sql`, then each file in
-   `supabase/migrations/` in order (`001`, `002`, `003`).
+   `supabase/migrations/` in order (`001`, `002`, `003`, `004`).
 3. **Authentication → URL Configuration:** set Site URL to
    `http://localhost:3000` (your Vercel URL once deployed) and add
    `http://localhost:3000/**` to Redirect URLs.

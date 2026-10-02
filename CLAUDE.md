@@ -37,6 +37,7 @@ Tables (all rows gated by `owner_id = auth.uid()`):
 - `manual_assets` — cash/savings accounts + `interest_rate_annual`
 - `snapshots` — point-in-time net worth (total_eur, breakdown, prices, fx)
 - `contributions` — recorded contributions (amount_eur, type, date)
+- `user_settings` — one row per user: `category_targets` jsonb (target % per category)
 
 ## Auth flow
 1. User lands on `/` → `components/login-screen.tsx` asks for email.
@@ -59,6 +60,9 @@ Tables (all rows gated by `owner_id = auth.uid()`):
 - Roles: `core` · `tactica` · `cobertura` · `complemento` · `caja` · `residual`.
 - `lib/policy.ts` holds `POLICY` constants (liquidity target, MSTR exit bands…).
   These are currently global — future work may make them per-user.
+- `CATEGORY_TARGETS` in `policy.ts` are only the **defaults**; the effective
+  targets come from `user_settings.category_targets` (loaded in `dashboard.tsx`,
+  edited in the "Asignación vs objetivo" card).
 
 ## UI guidelines
 - Dark theme, background `#080C18`, monospace font (Geist Mono).
@@ -121,6 +125,7 @@ supabase/
     001_snapshots_prices.sql
     002_multi_tenant.sql
     003_asset_interest.sql
+    004_user_settings.sql
 ```
 
 ## Secrets + repo hygiene
