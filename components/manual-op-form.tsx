@@ -77,6 +77,9 @@ export function ManualOpForm({ positions, manualAssets, usdEur, onAdd }: Props) 
         delta_shares: kind === "buy" ? s : -s,
         price_usd: Number.isFinite(p) && p > 0 ? p : null,
         date,
+        amount_eur: funding === FUNDING_NONE ? null : eur,
+        funding:
+          funding === FUNDING_NONE ? null : funding === FUNDING_EXTERNAL ? "external" : funding,
       });
       // Counterpart: a buy consumes cash (or is new external money), a sell
       // produces cash (or leaves the portfolio). Keeps net worth and

@@ -41,6 +41,7 @@ import type {
   PriceMap,
   PricesResult,
   Snapshot,
+  Trade,
   UserSettings,
 } from "@/lib/types";
 import { CATEGORY_TARGETS } from "@/lib/policy";
@@ -72,6 +73,7 @@ export function Dashboard({ userId, userEmail, demoMode = false }: Props) {
   const [manualAssets, setManualAssets] = useState<ManualAsset[]>([]);
   const [snapshots, setSnapshots] = useState<Snapshot[]>([]);
   const [contributions, setContributions] = useState<Contribution[]>([]);
+  const [trades, setTrades] = useState<Trade[]>([]);
   const [categoryTargets, setCategoryTargets] = useState<CategoryTargets>(CATEGORY_TARGETS);
   const [prices, setPrices] = useState<PriceMap>({});
   const [usdEur, setUsdEur] = useState(DEFAULT_USD_EUR);
@@ -145,7 +147,7 @@ export function Dashboard({ userId, userEmail, demoMode = false }: Props) {
         return;
       }
 
-      const [p, m, s, c, st] = await Promise.all([
+      const [p, m, s, c, st, t] = await Promise.all([
         supabase.from("positions").select("*").order("created_at"),
         supabase.from("manual_assets").select("*").order("name"),
         supabase
@@ -157,12 +159,19 @@ export function Dashboard({ userId, userEmail, demoMode = false }: Props) {
           .select("*")
           .order("date", { ascending: false }),
         supabase.from("user_settings").select("*").maybeSingle(),
+        supabase
+          .from("trades")
+          .select("*")
+          .order("date", { ascending: false })
+          .order("created_at", { ascending: false }),
       ]);
       if (p.error) throw p.error;
       if (m.error) throw m.error;
       if (s.error) throw s.error;
       if (c.error) throw c.error;
       if (st.error) throw st.error;
+      if (t.error) throw t.error;
+      setTrades(t.data as Trade[]);
 
       setPositions(p.data as Position[]);
       setManualAssets(m.data as ManualAsset[]);
@@ -581,8 +590,23 @@ export function Dashboard({ userId, userEmail, demoMode = false }: Props) {
               updates.avg_price_usd =
                 nextShares > 0 ? (prevCost + newCost) / nextShares : op.price_usd;
             }
+            const realized =
+              op.delta_shares < 0 && op.price_usd && existing.avg_price_usd != null
+                ? (op.price_usd - existing.avg_price_usd) * Math.abs(op.delta_shares)
+                : null;
+            const tradeRow = {
+              ticker: existing.ticker,
+              shares: op.delta_shares,
+              price_usd: op.price_usd ?? null,
+              amount_eur: op.amount_eur ?? null,
+              funding: op.funding ?? null,
+              realized_usd: realized,
+              date: op.date ?? nowIso.slice(0, 10),
+              note: null,
+            };
             if (demoMode) {
               posMap.set(existing.id, { ...existing, ...updates });
+              setTrades((prev) => [{ id: localId(), created_at: nowIso, ...tradeRow }, ...prev]);
             } else {
               const { data, error } = await supabase
                 .from("positions")
@@ -592,6 +616,13 @@ export function Dashboard({ userId, userEmail, demoMode = false }: Props) {
                 .single();
               if (error) throw error;
               posMap.set(existing.id, data as Position);
+              const ins = await supabase
+                .from("trades")
+                .insert({ owner_id: userId, ...tradeRow })
+                .select()
+                .single();
+              if (ins.error) throw ins.error;
+              setTrades((prev) => [ins.data as Trade, ...prev]);
             }
             applied++;
           } else if (op.type === "set_position") {
@@ -897,6 +928,7 @@ export function Dashboard({ userId, userEmail, demoMode = false }: Props) {
                 positions={positions}
                 manualAssets={manualAssets}
                 contributions={contributions}
+                trades={trades}
                 usdEur={usdEur}
                 onApply={applyJournalOps}
               />

@@ -12,6 +12,9 @@ export type JournalOp =
       price_usd?: number | null;
       /** YYYY-MM-DD the trade happened. Defaults to today. */
       date?: string | null;
+      /** Cash side in EUR and where it came from/went, for the trade log. */
+      amount_eur?: number | null;
+      funding?: string | null;
     }
   | {
       type: "set_position";
