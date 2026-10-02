@@ -10,6 +10,8 @@ export type JournalOp =
       ticker: string;
       delta_shares: number;
       price_usd?: number | null;
+      /** YYYY-MM-DD the trade happened. Defaults to today. */
+      date?: string | null;
     }
   | {
       type: "set_position";
@@ -22,6 +24,7 @@ export type JournalOp =
       type: "adjust_asset";
       name: string;
       delta_eur: number;
+      date?: string | null;
     }
   | {
       type: "set_asset";
@@ -71,8 +74,8 @@ export function describeOp(
       const unit = positionUnit(p, op.ticker);
       const next = p ? p.shares + op.delta_shares : null;
       const priceSuffix = op.price_usd ? ` a $${op.price_usd}` : "";
-      const missing = p ? "" : " (posición nueva, se creará)";
-      return `${direction} ${abs} ${op.ticker}${priceSuffix}${missing}${next != null ? ` → queda ${round(next)} ${unit}` : ""}`;
+      const missing = p ? "" : " (posición no encontrada)";
+      return `${direction} ${abs} ${op.ticker}${priceSuffix}${dateSuffix(op.date)}${missing}${next != null ? ` → queda ${round(next)} ${unit}` : ""}`;
     }
     case "set_position": {
       const p = findPositionByTicker(positions, op.ticker);
@@ -88,7 +91,7 @@ export function describeOp(
       const next = a ? a.value_eur + op.delta_eur : null;
       const sign = op.delta_eur >= 0 ? "+" : "";
       const missing = a ? "" : " (cuenta no encontrada)";
-      return `${sign}€${round(op.delta_eur)} a ${a?.name ?? op.name}${missing}${
+      return `${sign}€${round(op.delta_eur)} a ${a?.name ?? op.name}${dateSuffix(op.date)}${missing}${
         next != null ? ` → €${round(next)}` : ""
       }`;
     }
@@ -104,6 +107,12 @@ export function describeOp(
       return `${label} ${op.contribution_type} €${round(Math.abs(op.amount_eur))} (${when})${noteSuffix}`;
     }
   }
+}
+
+/** " (YYYY-MM-DD)" for ops dated in the past; empty for today/undefined. */
+function dateSuffix(date: string | null | undefined): string {
+  if (!date || date === new Date().toISOString().slice(0, 10)) return "";
+  return ` (${date})`;
 }
 
 function round(n: number, digits = 2): string {
