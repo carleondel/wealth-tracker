@@ -69,8 +69,9 @@ Time-weighted return of your portfolio (contributions neutralised) against
 buy-and-hold S&P 500 and Bitcoin over the same range, in € or $.
 
 ### Movimientos
-Build operations from a form, review them, apply them in one go. The
-contribution history lives below.
+Build operations from a form, review them, apply them in one go. Below, the
+trade log (with realized P&L on sells) and the contribution history, both
+exportable to CSV.
 
 ![Movimientos](./assets/05-movimientos.png)
 
@@ -127,7 +128,7 @@ npm install
 
 1. [supabase.com](https://supabase.com) → **New project**.
 2. **SQL Editor** → run `supabase/schema.sql`, then each file in
-   `supabase/migrations/` in order (`001`, `002`, `003`, `004`).
+   `supabase/migrations/` in order (`001` … `005`).
 3. **Authentication → URL Configuration:** set Site URL to
    `http://localhost:3000` (your Vercel URL once deployed) and add
    `http://localhost:3000/**` to Redirect URLs.

@@ -40,6 +40,9 @@ Tables (all rows gated by `owner_id = auth.uid()`):
 - `snapshots` — point-in-time net worth (total_eur, breakdown, prices, fx)
 - `contributions` — recorded contributions (amount_eur, type, date)
 - `user_settings` — one row per user: `category_targets` jsonb (target % per category)
+- `trades` — one row per buy/sell applied from the Journal (signed shares, price_usd,
+  amount_eur, funding, realized_usd for sells, date). Append-only log; positions stay
+  the source of truth for current holdings.
 
 ## Auth flow
 1. User lands on `/` → `components/login-screen.tsx` asks for email.
@@ -109,6 +112,11 @@ Tables (all rows gated by `owner_id = auth.uid()`):
 - `components/manual-op-form.tsx` builds ops (buy, sell, deposit, withdraw) typed in `lib/journal-ops.ts`.
 - The `JournalTab` shows a checkbox list of ops; `applyJournalOps` in the
   dashboard executes the checked ones against Supabase (or local state in demo).
+- Buy/Sell ops carry a cash counterpart ("Pagado con"): a liquidity account
+  (`adjust_asset`) or external money (`contribute`, negative for sells). Every
+  applied `adjust_position` also inserts a `trades` row.
+- The Journal lists the trade log and contributions, each with a CSV export
+  (`lib/csv.ts`, client-side Blob download).
 
 ## Project structure
 ```
@@ -139,6 +147,7 @@ lib/
   calculations.ts            # P&L, TWR, breakdown, deviation, accrued interest
   benchmark.ts               # benchmark types + pct-at-dates helper (shared)
   format.ts                  # fmtEur, fmtUsd, fmtPct, fmtDateTime
+  csv.ts                     # toCsv + downloadCsv for the export buttons
   seed.ts                    # DEMO_POSITIONS / DEMO_MANUAL_ASSETS (fake data)
   demo.ts                    # makeDemo* + generateDemoSnapshots for /demo
   journal-ops.ts             # Op types, describeOp
@@ -149,6 +158,7 @@ supabase/
     002_multi_tenant.sql
     003_asset_interest.sql
     004_user_settings.sql
+    005_trades.sql
 ```
 
 ## Secrets + repo hygiene

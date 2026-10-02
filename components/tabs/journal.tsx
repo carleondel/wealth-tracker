@@ -1,24 +1,26 @@
 "use client";
 
 import { useState } from "react";
-import { Check, Trash2 } from "lucide-react";
+import { Check, Download, Trash2 } from "lucide-react";
 import { Card, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ManualOpForm } from "@/components/manual-op-form";
 import { describeOp, type JournalOp } from "@/lib/journal-ops";
-import { fmtDate, fmtEur } from "@/lib/format";
-import type { Contribution, ManualAsset, Position } from "@/lib/types";
+import { fmtDate, fmtEur, fmtNumber, fmtUsd } from "@/lib/format";
+import { downloadCsv, toCsv } from "@/lib/csv";
+import type { Contribution, ManualAsset, Position, Trade } from "@/lib/types";
 
 interface Props {
   positions: Position[];
   manualAssets: ManualAsset[];
   contributions: Contribution[];
+  trades: Trade[];
   usdEur: number;
   onApply: (ops: JournalOp[]) => Promise<{ applied: number; failed: string[] }>;
 }
 
-export function JournalTab({ positions, manualAssets, contributions, usdEur, onApply }: Props) {
+export function JournalTab({ positions, manualAssets, contributions, trades, usdEur, onApply }: Props) {
   const [ops, setOps] = useState<JournalOp[]>([]);
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [applying, setApplying] = useState(false);
@@ -158,10 +160,18 @@ export function JournalTab({ positions, manualAssets, contributions, usdEur, onA
         </Card>
       ) : null}
 
+      <TradesCard trades={trades} />
+
       <Card>
         <div className="flex items-center justify-between gap-2">
           <CardTitle>Aportaciones</CardTitle>
-          <Badge variant="muted">{contributions.length}</Badge>
+          <div className="flex items-center gap-2">
+            <Badge variant="muted">{contributions.length}</Badge>
+            <ExportButton
+              disabled={contributions.length === 0}
+              onClick={() => exportContributions(contributions)}
+            />
+          </div>
         </div>
         <p className="mt-1 text-xs text-[var(--muted)]">
           Dinero externo (nómina, ahorro nuevo…). No cuenta como rendimiento.
@@ -213,4 +223,117 @@ function opTypeLabel(type: JournalOp["type"]): string {
     case "contribute":
       return "aportación";
   }
+}
+
+function TradesCard({ trades }: { trades: Trade[] }) {
+  return (
+    <Card>
+      <div className="flex items-center justify-between gap-2">
+        <CardTitle>Historial de operaciones</CardTitle>
+        <div className="flex items-center gap-2">
+          <Badge variant="muted">{trades.length}</Badge>
+          <ExportButton disabled={trades.length === 0} onClick={() => exportTrades(trades)} />
+        </div>
+      </div>
+      <p className="mt-1 text-xs text-[var(--muted)]">
+        Compras y ventas aplicadas desde aquí. Las ventas con precio muestran el
+        resultado realizado frente al coste medio.
+      </p>
+      <div className="mt-3 divide-y divide-[var(--border)]">
+        {trades.length === 0 ? (
+          <div className="py-3 text-xs text-[var(--muted)]">
+            Sin operaciones registradas todavía.
+          </div>
+        ) : (
+          trades.map((t) => {
+            const buy = t.shares > 0;
+            return (
+              <div key={t.id} className="py-2.5 flex items-center justify-between gap-3 text-sm">
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="whitespace-nowrap">{fmtDate(t.date)}</span>
+                    <Badge variant={buy ? "accent" : "warning"}>{buy ? "compra" : "venta"}</Badge>
+                    <span className="font-semibold">{t.ticker}</span>
+                    <span className="tabular-nums text-[var(--muted)]">
+                      {fmtNumber(Math.abs(t.shares), 6)}
+                      {t.price_usd != null ? ` × ${fmtUsd(t.price_usd)}` : ""}
+                    </span>
+                  </div>
+                  <div className="text-xs text-[var(--muted)] truncate">
+                    {t.funding === "external"
+                      ? buy
+                        ? "dinero externo"
+                        : "sale de la cartera"
+                      : t.funding
+                        ? `${buy ? "desde" : "a"} ${t.funding}`
+                        : "sin contrapartida"}
+                    {t.realized_usd != null ? (
+                      <>
+                        {" "}·{" "}
+                        <span className={t.realized_usd >= 0 ? "text-[var(--accent)]" : "text-[var(--danger)]"}>
+                          {t.realized_usd >= 0 ? "+" : ""}
+                          {fmtUsd(t.realized_usd)} realizado
+                        </span>
+                      </>
+                    ) : null}
+                  </div>
+                </div>
+                {t.amount_eur != null ? (
+                  <span className="shrink-0 tabular-nums">
+                    {buy ? "−" : "+"}
+                    {fmtEur(t.amount_eur)}
+                  </span>
+                ) : null}
+              </div>
+            );
+          })
+        )}
+      </div>
+    </Card>
+  );
+}
+
+function ExportButton({ onClick, disabled }: { onClick: () => void; disabled?: boolean }) {
+  return (
+    <button
+      onClick={onClick}
+      disabled={disabled}
+      className="p-1.5 rounded border border-[var(--border)] text-[var(--muted)] hover:text-[var(--foreground)] hover:border-[var(--muted)] disabled:opacity-40 disabled:cursor-not-allowed"
+      title="Exportar CSV"
+      aria-label="Exportar CSV"
+    >
+      <Download size={12} />
+    </button>
+  );
+}
+
+const stamp = () => new Date().toISOString().slice(0, 10);
+
+function exportTrades(trades: Trade[]) {
+  downloadCsv(
+    `trades-${stamp()}.csv`,
+    toCsv(trades, [
+      { header: "date", value: (t) => t.date },
+      { header: "side", value: (t) => (t.shares > 0 ? "buy" : "sell") },
+      { header: "ticker", value: (t) => t.ticker },
+      { header: "shares", value: (t) => Math.abs(t.shares) },
+      { header: "price_usd", value: (t) => t.price_usd },
+      { header: "amount_eur", value: (t) => t.amount_eur },
+      { header: "funding", value: (t) => t.funding },
+      { header: "realized_usd", value: (t) => t.realized_usd },
+      { header: "note", value: (t) => t.note },
+    ]),
+  );
+}
+
+function exportContributions(contributions: Contribution[]) {
+  downloadCsv(
+    `contributions-${stamp()}.csv`,
+    toCsv(contributions, [
+      { header: "date", value: (c) => c.date },
+      { header: "amount_eur", value: (c) => c.amount_eur },
+      { header: "type", value: (c) => c.type },
+      { header: "note", value: (c) => c.note },
+    ]),
+  );
 }

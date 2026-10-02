@@ -89,3 +89,19 @@ export interface UserSettings {
   category_targets: Partial<CategoryTargets>;
   updated_at: string;
 }
+
+export interface Trade {
+  id: string;
+  ticker: string;
+  /** Signed: > 0 buy, < 0 sell. */
+  shares: number;
+  price_usd: number | null;
+  amount_eur: number | null;
+  /** Account name, "external" or null. */
+  funding: string | null;
+  /** Sells only: realized P&L in USD vs the average price before the sale. */
+  realized_usd: number | null;
+  date: string;
+  note: string | null;
+  created_at: string;
+}
