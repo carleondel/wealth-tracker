@@ -29,10 +29,10 @@ export function ManualOpForm({ positions, manualAssets, usdEur, onAdd }: Props) 
   const [amountEur, setAmountEur] = useState("");
   const [isExternal, setIsExternal] = useState(false);
   const [funding, setFunding] = useState<string>(FUNDING_EXTERNAL);
+  const [date, setDate] = useState(todayIso);
   const [err, setErr] = useState<string | null>(null);
 
   const isPos = kind === "buy" || kind === "sell";
-  const today = () => new Date().toISOString().slice(0, 10);
 
   // Suggested EUR cost when shares + USD price are both filled in.
   const estimatedEur = (() => {
@@ -54,6 +54,10 @@ export function ManualOpForm({ positions, manualAssets, usdEur, onAdd }: Props) 
 
   function submit() {
     setErr(null);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+      setErr("Fecha inválida.");
+      return;
+    }
     if (isPos) {
       const s = Number(shares);
       if (!ticker.trim() || !Number.isFinite(s) || s <= 0) {
@@ -72,6 +76,7 @@ export function ManualOpForm({ positions, manualAssets, usdEur, onAdd }: Props) 
         ticker: t,
         delta_shares: kind === "buy" ? s : -s,
         price_usd: Number.isFinite(p) && p > 0 ? p : null,
+        date,
       });
       // Counterpart: a buy consumes cash (or is new external money), a sell
       // produces cash (or leaves the portfolio). Keeps net worth and
@@ -82,13 +87,14 @@ export function ManualOpForm({ positions, manualAssets, usdEur, onAdd }: Props) 
           amount_eur: kind === "buy" ? eur : -eur,
           contribution_type: "inversion",
           note: `${kind === "buy" ? "compra" : "venta"} ${s} ${t}`,
-          date: today(),
+          date,
         });
       } else if (funding !== FUNDING_NONE && eur != null) {
         onAdd({
           type: "adjust_asset",
           name: funding,
           delta_eur: kind === "buy" ? -eur : eur,
+          date,
         });
       }
     } else {
@@ -101,6 +107,7 @@ export function ManualOpForm({ positions, manualAssets, usdEur, onAdd }: Props) 
         type: "adjust_asset",
         name: assetName.trim(),
         delta_eur: kind === "deposit" ? a : -a,
+        date,
       });
       if (isExternal) {
         onAdd({
@@ -108,7 +115,7 @@ export function ManualOpForm({ positions, manualAssets, usdEur, onAdd }: Props) 
           amount_eur: kind === "deposit" ? a : -a,
           contribution_type: kind === "deposit" ? "nomina" : "otro",
           note: assetName.trim(),
-          date: today(),
+          date,
         });
       }
     }
@@ -117,6 +124,18 @@ export function ManualOpForm({ positions, manualAssets, usdEur, onAdd }: Props) 
 
   const inputClass =
     "w-full bg-[var(--surface-2)] border border-[var(--border)] rounded px-2 py-2 sm:py-1.5 text-sm text-[var(--foreground)] focus:outline-none focus:border-[var(--accent)]";
+
+  const dateField = (
+    <Field label="Fecha">
+      <input
+        type="date"
+        value={date}
+        max={todayIso()}
+        onChange={(e) => setDate(e.target.value)}
+        className={inputClass}
+      />
+    </Field>
+  );
 
   return (
     <Card>
@@ -147,7 +166,7 @@ export function ManualOpForm({ positions, manualAssets, usdEur, onAdd }: Props) 
 
       <div className="mt-4">
         {isPos ? (
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+          <div className="grid grid-cols-1 sm:grid-cols-4 gap-2">
             <Field label="Ticker">
               <input
                 list="manual-ticker-list"
@@ -184,9 +203,10 @@ export function ManualOpForm({ positions, manualAssets, usdEur, onAdd }: Props) 
                 className={inputClass}
               />
             </Field>
+            {dateField}
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
             <Field label="Cuenta">
               <input
                 list="manual-asset-list"
@@ -212,6 +232,7 @@ export function ManualOpForm({ positions, manualAssets, usdEur, onAdd }: Props) 
                 className={inputClass}
               />
             </Field>
+            {dateField}
           </div>
         )}
       </div>
@@ -294,6 +315,10 @@ export function ManualOpForm({ positions, manualAssets, usdEur, onAdd }: Props) 
       </div>
     </Card>
   );
+}
+
+function todayIso(): string {
+  return new Date().toISOString().slice(0, 10);
 }
 
 function kindLabel(k: Kind): string {
