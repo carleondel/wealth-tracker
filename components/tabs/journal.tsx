@@ -14,10 +14,11 @@ interface Props {
   positions: Position[];
   manualAssets: ManualAsset[];
   contributions: Contribution[];
+  usdEur: number;
   onApply: (ops: JournalOp[]) => Promise<{ applied: number; failed: string[] }>;
 }
 
-export function JournalTab({ positions, manualAssets, contributions, onApply }: Props) {
+export function JournalTab({ positions, manualAssets, contributions, usdEur, onApply }: Props) {
   const [ops, setOps] = useState<JournalOp[]>([]);
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [applying, setApplying] = useState(false);
@@ -76,6 +77,7 @@ export function JournalTab({ positions, manualAssets, contributions, onApply }: 
       <ManualOpForm
         positions={positions}
         manualAssets={manualAssets}
+        usdEur={usdEur}
         onAdd={addOp}
       />
 

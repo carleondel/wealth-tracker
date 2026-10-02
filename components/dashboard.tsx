@@ -866,6 +866,7 @@ export function Dashboard({ userId, userEmail, demoMode = false }: Props) {
                 positions={positions}
                 manualAssets={manualAssets}
                 contributions={contributions}
+                usdEur={usdEur}
                 onApply={applyJournalOps}
               />
             )}
