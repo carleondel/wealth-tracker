@@ -81,3 +81,11 @@ export interface PricesResult {
   btcUsd: number;
   prices: PriceMap;
 }
+
+export type CategoryTargets = Record<Category, number>;
+
+export interface UserSettings {
+  owner_id: string;
+  category_targets: Partial<CategoryTargets>;
+  updated_at: string;
+}

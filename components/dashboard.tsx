@@ -33,13 +33,16 @@ import {
 } from "@/lib/demo";
 import { TEMPLATES, getTemplate, type TemplateId } from "@/lib/seed";
 import type {
+  CategoryTargets,
   Contribution,
   ManualAsset,
   Position,
   PriceMap,
   PricesResult,
   Snapshot,
+  UserSettings,
 } from "@/lib/types";
+import { CATEGORY_TARGETS } from "@/lib/policy";
 
 type Tab = "overview" | "portfolio" | "journal";
 
@@ -67,6 +70,7 @@ export function Dashboard({ userId, userEmail, demoMode = false }: Props) {
   const [manualAssets, setManualAssets] = useState<ManualAsset[]>([]);
   const [snapshots, setSnapshots] = useState<Snapshot[]>([]);
   const [contributions, setContributions] = useState<Contribution[]>([]);
+  const [categoryTargets, setCategoryTargets] = useState<CategoryTargets>(CATEGORY_TARGETS);
   const [prices, setPrices] = useState<PriceMap>({});
   const [usdEur, setUsdEur] = useState(DEFAULT_USD_EUR);
   const [btcUsd, setBtcUsd] = useState(DEFAULT_BTC);
@@ -139,7 +143,7 @@ export function Dashboard({ userId, userEmail, demoMode = false }: Props) {
         return;
       }
 
-      const [p, m, s, c] = await Promise.all([
+      const [p, m, s, c, st] = await Promise.all([
         supabase.from("positions").select("*").order("created_at"),
         supabase.from("manual_assets").select("*").order("name"),
         supabase
@@ -150,16 +154,22 @@ export function Dashboard({ userId, userEmail, demoMode = false }: Props) {
           .from("contributions")
           .select("*")
           .order("date", { ascending: false }),
+        supabase.from("user_settings").select("*").maybeSingle(),
       ]);
       if (p.error) throw p.error;
       if (m.error) throw m.error;
       if (s.error) throw s.error;
       if (c.error) throw c.error;
+      if (st.error) throw st.error;
 
       setPositions(p.data as Position[]);
       setManualAssets(m.data as ManualAsset[]);
       setSnapshots(s.data as Snapshot[]);
       setContributions(c.data as Contribution[]);
+      setCategoryTargets({
+        ...CATEGORY_TARGETS,
+        ...((st.data as UserSettings | null)?.category_targets ?? {}),
+      });
 
       const latest = (s.data as Snapshot[])[0];
       if (latest) {
@@ -517,6 +527,20 @@ export function Dashboard({ userId, userEmail, demoMode = false }: Props) {
     }
   }, [userId, demoMode]);
 
+  const handleSaveTargets = useCallback(
+    async (targets: CategoryTargets) => {
+      setCategoryTargets(targets);
+      if (demoMode) return;
+      const { error } = await supabase.from("user_settings").upsert({
+        owner_id: userId,
+        category_targets: targets,
+        updated_at: new Date().toISOString(),
+      });
+      if (error) setErr(error.message);
+    },
+    [userId, demoMode],
+  );
+
   const handleLogout = useCallback(async () => {
     if (demoMode) {
       window.location.href = "/";
@@ -855,6 +879,8 @@ export function Dashboard({ userId, userEmail, demoMode = false }: Props) {
                 usdEur={usdEur}
                 btcUsd={btcUsd}
                 totalEur={totalEur}
+                categoryTargets={categoryTargets}
+                onSaveTargets={handleSaveTargets}
                 onAddPosition={() => setEditingPosition(null)}
                 onEditPosition={(p) => setEditingPosition(p)}
                 onAddAsset={() => setEditingAsset(null)}

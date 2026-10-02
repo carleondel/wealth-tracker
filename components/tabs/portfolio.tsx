@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { ChevronDown, Plus, Zap } from "lucide-react";
+import { ChevronDown, Plus, RotateCcw, Save, Zap } from "lucide-react";
 import { Card, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -17,6 +17,7 @@ import {
 } from "@/lib/calculations";
 import type {
   Category,
+  CategoryTargets,
   ManualAsset,
   Position,
   PriceMap,
@@ -29,6 +30,8 @@ interface Props {
   usdEur: number;
   btcUsd: number;
   totalEur: number;
+  categoryTargets: CategoryTargets;
+  onSaveTargets: (targets: CategoryTargets) => Promise<void>;
   onAddPosition: () => void;
   onEditPosition: (p: Position) => void;
   onAddAsset: () => void;
@@ -44,6 +47,8 @@ export function PortfolioTab({
   usdEur,
   btcUsd,
   totalEur,
+  categoryTargets,
+  onSaveTargets,
   onAddPosition,
   onEditPosition,
   onAddAsset,
@@ -78,6 +83,8 @@ export function PortfolioTab({
         manualAssets={manualAssets}
         prices={prices}
         usdEur={usdEur}
+        targets={categoryTargets}
+        onSave={onSaveTargets}
       />
 
       <section>
@@ -316,24 +323,76 @@ function AllocationCard({
   manualAssets,
   prices,
   usdEur,
+  targets,
+  onSave,
 }: {
   positions: Position[];
   manualAssets: ManualAsset[];
   prices: PriceMap;
   usdEur: number;
+  targets: CategoryTargets;
+  onSave: (targets: CategoryTargets) => Promise<void>;
 }) {
-  const [targets, setTargets] = useState(CATEGORY_TARGETS);
+  const toDraft = (t: CategoryTargets) =>
+    Object.fromEntries(CATEGORIES.map((c) => [c, String(t[c] ?? 0)])) as Record<Category, string>;
+  const [draft, setDraft] = useState<Record<Category, string>>(() => toDraft(targets));
+  const [saving, setSaving] = useState(false);
+  // Re-sync the draft when saved targets change (load, save, other tab…).
+  const savedKey = JSON.stringify(targets);
+  const [syncedKey, setSyncedKey] = useState(savedKey);
+  if (syncedKey !== savedKey) {
+    setSyncedKey(savedKey);
+    setDraft(toDraft(targets));
+  }
+
   const percents = getCategoryPercents(
     getCategoryBreakdown(positions, manualAssets, prices, usdEur),
   );
+  const parsed = Object.fromEntries(
+    CATEGORIES.map((c) => [c, Math.max(0, Number(draft[c]) || 0)]),
+  ) as CategoryTargets;
+  const sum = CATEGORIES.reduce((acc, c) => acc + parsed[c], 0);
+  const dirty = CATEGORIES.some((c) => parsed[c] !== (targets[c] ?? 0));
+  const isDefault = CATEGORIES.every((c) => parsed[c] === CATEGORY_TARGETS[c]);
+
+  async function save() {
+    setSaving(true);
+    try {
+      await onSave(parsed);
+    } finally {
+      setSaving(false);
+    }
+  }
 
   return (
     <Card>
-      <CardTitle>Asignación vs objetivo</CardTitle>
+      <div className="flex items-center justify-between gap-2">
+        <CardTitle>Asignación vs objetivo</CardTitle>
+        <div className="flex items-center gap-2">
+          {Math.abs(sum - 100) > 0.01 ? (
+            <Badge variant="warning">suma {sum.toFixed(0)}%</Badge>
+          ) : null}
+          {!isDefault ? (
+            <button
+              onClick={() => setDraft(toDraft(CATEGORY_TARGETS))}
+              className="p-1 text-[var(--muted)] hover:text-[var(--foreground)]"
+              title="Restablecer objetivos por defecto"
+              aria-label="Restablecer objetivos por defecto"
+            >
+              <RotateCcw size={12} />
+            </button>
+          ) : null}
+          {dirty ? (
+            <Button onClick={save} disabled={saving} className="py-1">
+              <Save size={12} /> {saving ? "…" : "Guardar"}
+            </Button>
+          ) : null}
+        </div>
+      </div>
       <div className="mt-4 space-y-4 sm:space-y-3">
         {CATEGORIES.map((cat) => {
           const current = percents[cat];
-          const target = targets[cat];
+          const target = parsed[cat];
           const dev = current - target;
           return (
             <div
@@ -367,13 +426,16 @@ function AllocationCard({
                   <input
                     type="number"
                     inputMode="decimal"
-                    value={target}
+                    min="0"
+                    max="100"
+                    step="any"
+                    value={draft[cat]}
                     onChange={(e) =>
-                      setTargets((prev) => ({
-                        ...prev,
-                        [cat]: Number(e.target.value) || 0,
-                      }))
+                      setDraft((prev) => ({ ...prev, [cat]: e.target.value }))
                     }
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && dirty) void save();
+                    }}
                     className="w-14 sm:w-12 bg-[var(--surface-2)] border border-[var(--border)] rounded px-1 py-0.5 text-right tabular-nums"
                   />
                   %
