@@ -327,3 +327,101 @@ export function getDayChange(
   const base = totalEur - eur;
   return { eur, pct: base > 0 ? (eur / base) * 100 : 0 };
 }
+
+/** Keeps only the latest snapshot of each local calendar day, oldest first. */
+export function lastSnapshotPerDay(snapshots: Snapshot[]): Snapshot[] {
+  const byDay = new Map<string, Snapshot>();
+  for (const s of snapshots) {
+    const key = new Date(s.created_at).toDateString();
+    const prev = byDay.get(key);
+    if (!prev || new Date(s.created_at) > new Date(prev.created_at)) byDay.set(key, s);
+  }
+  return Array.from(byDay.values()).sort(
+    (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime(),
+  );
+}
+
+export interface TwrPoint {
+  createdAt: string;
+  /** Cumulative time-weighted return (%) from the range baseline. */
+  pct: number;
+}
+
+export interface TwrResult {
+  points: TwrPoint[];
+  /** Total TWR (%) over the range. */
+  totalPct: number;
+  fromIso: string;
+  contributionsTotal: number;
+}
+
+/**
+ * Time-weighted return: chains the sub-period returns between consecutive
+ * snapshots, so the size and timing of contributions don't distort the %.
+ *
+ * Works at day granularity: only the last snapshot of each calendar day is
+ * used. A contribution dated D is attached to day D's snapshot and treated as
+ * arriving at the start of that sub-period:
+ *   r = V_end / (V_start + flow) − 1
+ * This matches the usual flow (buy during the day, snapshot that night).
+ */
+export function getTimeWeightedReturn(
+  allSnapshots: Snapshot[],
+  contributions: Contribution[],
+  range: PnLRange,
+  now: Date = new Date(),
+): TwrResult | null {
+  const snapshots = lastSnapshotPerDay(allSnapshots);
+  if (snapshots.length === 0) return null;
+  const baselineSnap = findBaselineSnapshot(snapshots, range, now);
+  if (!baselineSnap) return null;
+  const baselineMs = new Date(baselineSnap.created_at).getTime();
+
+  const inRange = snapshots
+    .filter((s) => new Date(s.created_at).getTime() >= baselineMs)
+    .sort(
+      (a, b) =>
+        new Date(a.created_at).getTime() - new Date(b.created_at).getTime(),
+    );
+  if (inRange.length === 0) return null;
+
+  // Flows after the baseline, as day-start timestamps (contribution dates
+  // have no time component).
+  const flows = contributions
+    .map((c) => ({
+      ms: new Date(`${c.date.slice(0, 10)}T00:00:00`).getTime(),
+      eur: Number(c.amount_eur) || 0,
+    }))
+    .filter((f) => f.ms > baselineMs - 86_400_000 && f.eur !== 0)
+    .sort((a, b) => a.ms - b.ms);
+
+  let index = 1;
+  let flowIdx = 0;
+  let contributionsTotal = 0;
+  const points: TwrPoint[] = [{ createdAt: inRange[0].created_at, pct: 0 }];
+  // Flows dated on/before the baseline snapshot's day are already in V_start.
+  while (flowIdx < flows.length && flows[flowIdx].ms <= baselineMs) flowIdx++;
+
+  for (let i = 1; i < inRange.length; i++) {
+    const prev = inRange[i - 1];
+    const cur = inRange[i];
+    const curMs = new Date(cur.created_at).getTime();
+    let flow = 0;
+    while (flowIdx < flows.length && flows[flowIdx].ms <= curMs) {
+      flow += flows[flowIdx].eur;
+      flowIdx++;
+    }
+    contributionsTotal += flow;
+    const vStart = (Number(prev.total_eur) || 0) + flow;
+    const vEnd = Number(cur.total_eur) || 0;
+    if (vStart > 0) index *= vEnd / vStart;
+    points.push({ createdAt: cur.created_at, pct: (index - 1) * 100 });
+  }
+
+  return {
+    points,
+    totalPct: (index - 1) * 100,
+    fromIso: baselineSnap.created_at,
+    contributionsTotal,
+  };
+}

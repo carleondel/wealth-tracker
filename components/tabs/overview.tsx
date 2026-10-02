@@ -18,6 +18,7 @@ import {
 import { Card, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
+import { RangePills } from "@/components/ui/range-pills";
 import { fmtDate, fmtEur, fmtPct, fmtUsd } from "@/lib/format";
 import { CATEGORY_COLORS, POLICY } from "@/lib/policy";
 import {
@@ -73,27 +74,7 @@ export function OverviewTab({
   );
 }
 
-const RANGES: PnLRange[] = ["1D", "7D", "MTD", "30D", "90D", "YTD", "1Y", "2Y", "ALL"];
-
-function rangeLabel(r: PnLRange): string {
-  switch (r) {
-    case "30D":
-      return "1M";
-    case "90D":
-      return "3M";
-    default:
-      return r;
-  }
-}
-
 type Mode = "value" | "pct";
-
-const pill = (active: boolean) =>
-  `shrink-0 px-1.5 py-1.5 sm:px-2 sm:py-1 text-[10px] uppercase tracking-wider rounded transition-colors ${
-    active
-      ? "bg-[var(--surface-2)] text-[var(--foreground)]"
-      : "text-[var(--muted)] hover:text-[var(--foreground)]"
-  }`;
 
 function PerformanceCard({
   snapshots,
@@ -261,13 +242,7 @@ function PerformanceCard({
             )}
           </div>
 
-          <div className="mt-3 flex gap-0.5 sm:gap-1 overflow-x-auto no-scrollbar justify-between sm:justify-center">
-            {RANGES.map((r) => (
-              <button key={r} onClick={() => setRange(r)} className={pill(range === r)}>
-                {rangeLabel(r)}
-              </button>
-            ))}
-          </div>
+          <RangePills value={range} onChange={setRange} />
         </>
       )}
     </Card>
