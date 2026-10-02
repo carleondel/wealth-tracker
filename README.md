@@ -153,6 +153,8 @@ cp .env.example .env.local
 | `NEXT_PUBLIC_SUPABASE_URL` | yes | Project URL |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | yes | Publishable key (legacy anon JWT also works) |
 | `FINNHUB_API_KEY` | for US stocks | Free at [finnhub.io](https://finnhub.io), 60 req/min. Server-side only. |
+| `SUPABASE_SERVICE_ROLE_KEY` | for the daily cron | Supabase → Project Settings → API → `service_role`. **Secret**, server-side only. |
+| `CRON_SECRET` | for the daily cron | Any long random string (`openssl rand -hex 32`). Vercel sends it to the cron route. |
 
 ### 4. Run
 
@@ -167,6 +169,33 @@ code, and pick a starting template (or start empty).
 
 Import the repo in Vercel, add the same env vars, and add the production URL
 to Supabase's Redirect URLs.
+
+### 6. Daily snapshot (optional)
+
+Prices are never fetched on page load — a snapshot is saved only when you
+press **UPDATE**. To get a clean daily series for the history chart without
+opening the app, `vercel.json` schedules a [Vercel Cron](https://vercel.com/docs/cron-jobs)
+that calls `/api/cron/snapshot` every day at 22:00 UTC (after the US close).
+The route fetches prices once for every ticker held by any user and inserts
+one snapshot per user.
+
+1. In Vercel → Project → Settings → Environment Variables add
+   `SUPABASE_SERVICE_ROLE_KEY` and `CRON_SECRET` (see table above). Redeploy.
+2. Vercel → Project → Settings → Cron Jobs shows the schedule and lets you
+   run it manually. The response looks like
+   `{"users":3,"saved":3,"tickers":18,"errors":[]}`.
+3. To test locally:
+   ```bash
+   curl -H "Authorization: Bearer $CRON_SECRET" http://localhost:3000/api/cron/snapshot
+   ```
+
+Notes:
+- The Hobby plan allows daily crons only, triggered within the scheduled hour.
+- The service role key bypasses RLS, which is why the route needs it (it writes
+  on behalf of every user). It is only read on the server and the route rejects
+  any request without the matching `CRON_SECRET`.
+- Side effect: the daily write keeps a free Supabase project from pausing
+  after 7 days of inactivity.
 
 ---
 
@@ -191,7 +220,8 @@ everything from the UI:
 - **The public key is public by design.** Security comes from RLS, not from
   hiding the Supabase publishable key.
 - **Server secrets stay on the server.** The Finnhub key is only used by the
-  `/api/prices` route.
+  `/api/prices` route; the Supabase service role key only by
+  `/api/cron/snapshot`, which requires `CRON_SECRET`.
 - **No analytics, no tracking.** The app only talks to your Supabase and the
   public price feeds.
 
@@ -210,7 +240,8 @@ guaranteed backups. If that matters to you, self-host — it's the same app.
 app/
   page.tsx                    # auth gate (login vs dashboard)
   demo/page.tsx               # public demo, in-memory state
-  api/prices/route.ts         # CoinGecko + Finnhub + Frankfurter aggregator
+  api/prices/route.ts         # user-triggered prices (UPDATE button)
+  api/cron/snapshot/route.ts  # daily snapshot for every user (Vercel Cron)
   icon.tsx, apple-icon.tsx    # app icons rendered from the logo
   manifest.ts                 # PWA manifest
 components/

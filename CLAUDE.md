@@ -10,8 +10,8 @@ their own data. Includes a public `/demo` route backed by fake in-memory data.
 - Tailwind CSS v4
 - Supabase (Postgres + Auth magic link) via `@supabase/supabase-js`
 - Recharts (charts) + Lucide (icons)
-- Prices: free public APIs, no keys — CoinGecko (crypto), Finnhub (US stocks),
-  Frankfurter (USD/EUR)
+- Prices: CoinGecko (crypto, no key), Finnhub (US stocks, free `FINNHUB_API_KEY`),
+  Frankfurter (USD/EUR, no key)
 
 ## Commands
 - `npm run dev` — dev server (http://localhost:3000)
@@ -25,6 +25,8 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=sb_publishable_...   # or the legacy JWT anon key
 ```
 
 `NEXT_PUBLIC_*` are public-by-design (Supabase RLS enforces security).
+Server-only: `FINNHUB_API_KEY`, and for the daily cron `SUPABASE_SERVICE_ROLE_KEY`
++ `CRON_SECRET` (see README "Daily snapshot").
 
 ## Data model
 SQL lives in `supabase/schema.sql` (base tables) and
@@ -78,6 +80,11 @@ Tables (all rows gated by `owner_id = auth.uid()`):
 
 ## How prices work
 - Prices are **never** auto-fetched on page load.
+- Fetch logic lives in `lib/prices-server.ts` (`fetchPrices`), shared by
+  `/api/prices` and `/api/cron/snapshot`. Server-only.
+- `vercel.json` schedules `/api/cron/snapshot` daily at 22:00 UTC: service-role
+  client, one price fetch for the union of tickers, one snapshot per user.
+  Protected by `CRON_SECRET` bearer header.
 - User clicks `UPDATE` → `/api/prices?tickers=…` → parallel fan-out to:
   - CoinGecko `simple/price?include_24hr_change=true` for crypto (BTC-USD, SOL-USD, XRP-USD, USDC-USD…).
   - Finnhub single-symbol CSV per US stock ticker (`...q/l/?s=<ticker>.us&f=sd2t2ohlcv&h&e=csv`). Intraday % change derived from `(close − open) / open`.
@@ -99,7 +106,8 @@ app/
   icon.tsx / apple-icon.tsx  # PNG icons rendered from LogoMark
   manifest.ts                # PWA manifest
   demo/page.tsx              # public demo, demoMode=true
-  api/prices/route.ts        # CoinGecko + Finnhub + Frankfurter aggregator
+  api/prices/route.ts        # user-triggered prices → fetchPrices
+  api/cron/snapshot/route.ts # daily snapshot for all users (Vercel Cron)
 components/
   dashboard.tsx              # all state + handlers (branches on demoMode)
   login-screen.tsx           # email → OTP code (or magic link)
@@ -114,6 +122,7 @@ lib/
   supabase.ts                # client
   types.ts                   # Position, ManualAsset, Snapshot, Contribution…
   policy.ts                  # POLICY constants, category colors/targets, ROLE_INFO
+  prices-server.ts           # CoinGecko + Finnhub + Frankfurter aggregator (server)
   calculations.ts            # P&L, breakdown, deviation, accrued interest
   format.ts                  # fmtEur, fmtUsd, fmtPct, fmtDateTime
   seed.ts                    # DEMO_POSITIONS / DEMO_MANUAL_ASSETS (fake data)
