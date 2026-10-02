@@ -100,7 +100,8 @@ export function describeOp(
     case "contribute": {
       const when = op.date ?? "hoy";
       const noteSuffix = op.note ? ` — ${op.note}` : "";
-      return `aportación ${op.contribution_type} €${round(op.amount_eur)} (${when})${noteSuffix}`;
+      const label = op.amount_eur < 0 ? "retirada" : "aportación";
+      return `${label} ${op.contribution_type} €${round(Math.abs(op.amount_eur))} (${when})${noteSuffix}`;
     }
   }
 }

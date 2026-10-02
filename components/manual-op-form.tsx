@@ -9,13 +9,18 @@ import type { ManualAsset, Position } from "@/lib/types";
 
 type Kind = "buy" | "sell" | "deposit" | "withdraw";
 
+/** Where the cash of a buy/sell comes from / goes to. */
+const FUNDING_EXTERNAL = "__external__";
+const FUNDING_NONE = "__none__";
+
 interface Props {
   positions: Position[];
   manualAssets: ManualAsset[];
+  usdEur: number;
   onAdd: (op: JournalOp) => void;
 }
 
-export function ManualOpForm({ positions, manualAssets, onAdd }: Props) {
+export function ManualOpForm({ positions, manualAssets, usdEur, onAdd }: Props) {
   const [kind, setKind] = useState<Kind>("buy");
   const [ticker, setTicker] = useState("");
   const [shares, setShares] = useState("");
@@ -23,9 +28,19 @@ export function ManualOpForm({ positions, manualAssets, onAdd }: Props) {
   const [assetName, setAssetName] = useState("");
   const [amountEur, setAmountEur] = useState("");
   const [isExternal, setIsExternal] = useState(false);
+  const [funding, setFunding] = useState<string>(FUNDING_EXTERNAL);
   const [err, setErr] = useState<string | null>(null);
 
   const isPos = kind === "buy" || kind === "sell";
+  const today = () => new Date().toISOString().slice(0, 10);
+
+  // Suggested EUR cost when shares + USD price are both filled in.
+  const estimatedEur = (() => {
+    const s = Number(shares);
+    const p = Number(priceUsd);
+    if (!Number.isFinite(s) || s <= 0 || !Number.isFinite(p) || p <= 0) return null;
+    return s * p * usdEur;
+  })();
 
   function reset() {
     setTicker("");
@@ -45,33 +60,55 @@ export function ManualOpForm({ positions, manualAssets, onAdd }: Props) {
         setErr("Falta ticker o cantidad válida.");
         return;
       }
+      const t = ticker.trim().toUpperCase();
       const p = Number(priceUsd);
-      const delta = kind === "buy" ? s : -s;
+      const eur = amountEur.trim() === "" ? estimatedEur : Number(amountEur);
+      if (funding !== FUNDING_NONE && (eur == null || !Number.isFinite(eur) || eur <= 0)) {
+        setErr("Falta el importe en € (o precio USD para estimarlo).");
+        return;
+      }
       onAdd({
         type: "adjust_position",
-        ticker: ticker.trim().toUpperCase(),
-        delta_shares: delta,
+        ticker: t,
+        delta_shares: kind === "buy" ? s : -s,
         price_usd: Number.isFinite(p) && p > 0 ? p : null,
       });
+      // Counterpart: a buy consumes cash (or is new external money), a sell
+      // produces cash (or leaves the portfolio). Keeps net worth and
+      // market P&L neutral.
+      if (funding === FUNDING_EXTERNAL && eur != null) {
+        onAdd({
+          type: "contribute",
+          amount_eur: kind === "buy" ? eur : -eur,
+          contribution_type: "inversion",
+          note: `${kind === "buy" ? "compra" : "venta"} ${s} ${t}`,
+          date: today(),
+        });
+      } else if (funding !== FUNDING_NONE && eur != null) {
+        onAdd({
+          type: "adjust_asset",
+          name: funding,
+          delta_eur: kind === "buy" ? -eur : eur,
+        });
+      }
     } else {
       const a = Number(amountEur);
       if (!assetName.trim() || !Number.isFinite(a) || a <= 0) {
         setErr("Falta cuenta o importe válido.");
         return;
       }
-      const delta = kind === "deposit" ? a : -a;
       onAdd({
         type: "adjust_asset",
         name: assetName.trim(),
-        delta_eur: delta,
+        delta_eur: kind === "deposit" ? a : -a,
       });
-      if (kind === "deposit" && isExternal) {
+      if (isExternal) {
         onAdd({
           type: "contribute",
-          amount_eur: a,
-          contribution_type: "nomina",
+          amount_eur: kind === "deposit" ? a : -a,
+          contribution_type: kind === "deposit" ? "nomina" : "otro",
           note: assetName.trim(),
-          date: new Date().toISOString().slice(0, 10),
+          date: today(),
         });
       }
     }
@@ -180,13 +217,54 @@ export function ManualOpForm({ positions, manualAssets, onAdd }: Props) {
       </div>
 
       {isPos ? (
-        <p className="mt-3 text-[11px] text-[var(--muted)]">
-          Sin precio: solo se ajustan las shares. Con precio: se recalcula el
-          coste medio ponderado.
-        </p>
+        <>
+          <p className="mt-3 text-[11px] text-[var(--muted)]">
+            Sin precio: solo se ajustan las shares. Con precio: se recalcula el
+            coste medio ponderado.
+          </p>
+          <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-2">
+            <Field label={kind === "buy" ? "Pagado con" : "Ingresado en"}>
+              <select
+                value={funding}
+                onChange={(e) => setFunding(e.target.value)}
+                className={inputClass}
+              >
+                <option value={FUNDING_EXTERNAL}>
+                  {kind === "buy" ? "Dinero externo (aportación)" : "Sale de la cartera (retirada)"}
+                </option>
+                {manualAssets.map((a) => (
+                  <option key={a.id} value={a.name}>
+                    {a.name}
+                  </option>
+                ))}
+                <option value={FUNDING_NONE}>Sin contrapartida (solo ajustar posición)</option>
+              </select>
+            </Field>
+            {funding !== FUNDING_NONE ? (
+              <Field label="Importe €">
+                <input
+                  type="number"
+                  step="any"
+                  min="0"
+                  value={amountEur}
+                  onChange={(e) => setAmountEur(e.target.value)}
+                  placeholder={estimatedEur != null ? estimatedEur.toFixed(2) : "3000"}
+                  className={inputClass}
+                />
+              </Field>
+            ) : null}
+          </div>
+          <p className="mt-2 text-[11px] text-[var(--muted)]">
+            {funding === FUNDING_NONE
+              ? "Ojo: sin contrapartida el cambio de valor contará como rendimiento de mercado."
+              : funding === FUNDING_EXTERNAL
+                ? "Se registra como aportación para que no cuente como rendimiento. Importe vacío = estimado con precio USD × tipo de cambio."
+                : "Se descuenta/abona en esa cuenta. Patrimonio y rendimiento quedan neutros."}
+          </p>
+        </>
       ) : null}
 
-      {kind === "deposit" ? (
+      {!isPos ? (
         <label className="mt-3 flex items-center gap-2 text-xs cursor-pointer">
           <input
             type="checkbox"
@@ -195,8 +273,12 @@ export function ManualOpForm({ positions, manualAssets, onAdd }: Props) {
             className="accent-[var(--accent)]"
           />
           <span>
-            Es dinero externo (nómina, ahorro nuevo…)
-            <span className="text-[var(--muted)]"> — se registra también como aportación</span>
+            {kind === "deposit"
+              ? "Es dinero externo (nómina, ahorro nuevo…)"
+              : "Sale de la cartera (gasto, transferencia fuera…)"}
+            <span className="text-[var(--muted)]">
+              {" "}— se registra como aportación {kind === "withdraw" ? "negativa " : ""}para no contar como rendimiento
+            </span>
           </span>
         </label>
       ) : null}
