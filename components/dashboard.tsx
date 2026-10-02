@@ -10,6 +10,7 @@ import { DashboardSkeleton } from "@/components/ui/skeleton";
 import { OverviewTab } from "@/components/tabs/overview";
 import { PortfolioTab } from "@/components/tabs/portfolio";
 import { JournalTab } from "@/components/tabs/journal";
+import { BenchmarkTab } from "@/components/tabs/benchmark";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/lib/supabase";
@@ -44,11 +45,12 @@ import type {
 } from "@/lib/types";
 import { CATEGORY_TARGETS } from "@/lib/policy";
 
-type Tab = "overview" | "portfolio" | "journal";
+type Tab = "overview" | "portfolio" | "benchmark" | "journal";
 
 const TABS: Array<{ id: Tab; label: string }> = [
   { id: "overview", label: "Resumen" },
   { id: "portfolio", label: "Cartera" },
+  { id: "benchmark", label: "Benchmark" },
   { id: "journal", label: "Movimientos" },
 ];
 
@@ -886,6 +888,9 @@ export function Dashboard({ userId, userEmail, demoMode = false }: Props) {
                 onAddAsset={() => setEditingAsset(null)}
                 onEditAsset={(a) => setEditingAsset(a)}
               />
+            )}
+            {tab === "benchmark" && (
+              <BenchmarkTab snapshots={snapshots} contributions={contributions} />
             )}
             {tab === "journal" && (
               <JournalTab

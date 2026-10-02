@@ -64,6 +64,10 @@ Positions and accounts grouped by category. Tap any row to edit it.
 
 ![Edit position](./assets/04-edit-position.png)
 
+### Benchmark
+Time-weighted return of your portfolio (contributions neutralised) against
+buy-and-hold S&P 500 and Bitcoin over the same range, in € or $.
+
 ### Movimientos
 Build operations from a form, review them, apply them in one go. The
 contribution history lives below.
@@ -242,6 +246,7 @@ app/
   demo/page.tsx               # public demo, in-memory state
   api/prices/route.ts         # user-triggered prices (UPDATE button)
   api/cron/snapshot/route.ts  # daily snapshot for every user (Vercel Cron)
+  api/benchmark/route.ts      # S&P 500 + BTC history for the Benchmark tab
   icon.tsx, apple-icon.tsx    # app icons rendered from the logo
   manifest.ts                 # PWA manifest
 components/
@@ -250,6 +255,7 @@ components/
   login-screen.tsx            # email → one-time code
   tabs/overview.tsx           # Resumen
   tabs/portfolio.tsx          # Cartera
+  tabs/benchmark.tsx          # Benchmark (TWR vs S&P 500 / BTC)
   tabs/journal.tsx            # Movimientos
   manual-op-form.tsx          # buy / sell / deposit / withdraw builder
   edit-position-modal.tsx, edit-asset-modal.tsx, update-prices-modal.tsx

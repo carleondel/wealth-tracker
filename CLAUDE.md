@@ -68,10 +68,11 @@ Tables (all rows gated by `owner_id = auth.uid()`):
 
 ## UI guidelines
 - Dark theme, background `#080C18`, monospace font (Geist Mono).
-- Three tabs: **Resumen** (`overview.tsx`: P&L + evolution chart, distribution,
+- Four tabs: **Resumen** (`overview.tsx`: P&L + evolution chart, distribution,
   liquidity, plan) · **Cartera** (`portfolio.tsx`: allocation vs target, positions
-  grouped by category, collapsible simulator) · **Movimientos** (`journal.tsx`:
-  manual ops + contributions history).
+  grouped by category, collapsible simulator) · **Benchmark** (`benchmark.tsx`:
+  time-weighted return vs S&P 500 and BTC, € or $) · **Movimientos**
+  (`journal.tsx`: manual ops + contributions history).
 - Persistent top header: total EUR + today's change · USD/EUR and BTC chips · UPDATE + pencil · last update.
 - Values displayed in EUR. Asset prices shown in USD.
 - FX/BTC chips show a status dot (LIVE / FALLBACK / MANUAL); clicking them opens
@@ -93,6 +94,17 @@ Tables (all rows gated by `owner_id = auth.uid()`):
   surface as a banner; working tickers still save a snapshot.
 - The pencil icon opens the manual-entry modal for overrides.
 
+## How performance is measured
+- Resumen shows `getPnLForRange`: net change minus contributions in the period
+  (simple, in €). Its % is relative to the baseline total.
+- Benchmark shows `getTimeWeightedReturn` (TWR): one snapshot per day
+  (`lastSnapshotPerDay`), sub-period returns chained, contribution dated D
+  neutralised at the start of day D's sub-period. The % is independent of how
+  much was contributed. Benchmarks come from `/api/benchmark` (Yahoo ^GSPC and
+  BTC-USD, CoinGecko fallback for BTC, Frankfurter USD/EUR series; 1h cache)
+  and are fetched once when the tab mounts — this is the only network call
+  outside UPDATE, and it never touches positions or snapshots.
+
 ## How the Journal works
 - `components/manual-op-form.tsx` builds ops (buy, sell, deposit, withdraw) typed in `lib/journal-ops.ts`.
 - The `JournalTab` shows a checkbox list of ops; `applyJournalOps` in the
@@ -108,6 +120,7 @@ app/
   demo/page.tsx              # public demo, demoMode=true
   api/prices/route.ts        # user-triggered prices → fetchPrices
   api/cron/snapshot/route.ts # daily snapshot for all users (Vercel Cron)
+  api/benchmark/route.ts     # S&P 500 + BTC daily closes + USD/EUR series
 components/
   dashboard.tsx              # all state + handlers (branches on demoMode)
   login-screen.tsx           # email → OTP code (or magic link)
@@ -116,14 +129,15 @@ components/
   update-prices-modal.tsx    # manual price entry fallback
   edit-position-modal.tsx    # CRUD positions
   edit-asset-modal.tsx       # CRUD manual assets + apply interest
-  tabs/{overview,portfolio,journal}.tsx
-  ui/{card,badge,button,progress}.tsx
+  tabs/{overview,portfolio,benchmark,journal}.tsx
+  ui/{card,badge,button,progress,range-pills}.tsx
 lib/
   supabase.ts                # client
   types.ts                   # Position, ManualAsset, Snapshot, Contribution…
   policy.ts                  # POLICY constants, category colors/targets, ROLE_INFO
   prices-server.ts           # CoinGecko + Finnhub + Frankfurter aggregator (server)
-  calculations.ts            # P&L, breakdown, deviation, accrued interest
+  calculations.ts            # P&L, TWR, breakdown, deviation, accrued interest
+  benchmark.ts               # benchmark types + pct-at-dates helper (shared)
   format.ts                  # fmtEur, fmtUsd, fmtPct, fmtDateTime
   seed.ts                    # DEMO_POSITIONS / DEMO_MANUAL_ASSETS (fake data)
   demo.ts                    # makeDemo* + generateDemoSnapshots for /demo
