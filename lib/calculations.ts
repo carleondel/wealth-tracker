@@ -219,6 +219,27 @@ function findBaselineSnapshot(
   return best;
 }
 
+/**
+ * When a contribution entered the tracked net worth. The Journal writes the
+ * contribution row together with the balance/position change, so `created_at`
+ * is the moment snapshots start to include it. `date` is only the label the
+ * user picked (it may be backdated), so it's a fallback for rows without one.
+ */
+function contributionMs(c: Contribution): number {
+  const created = Date.parse(c.created_at);
+  return Number.isFinite(created)
+    ? created
+    : new Date(`${c.date.slice(0, 10)}T00:00:00`).getTime();
+}
+
+/** Sum of contributions recorded in the interval (fromMs, toMs]. */
+function sumContributions(contributions: Contribution[], fromMs: number, toMs: number): number {
+  return contributions.reduce((sum, c) => {
+    const ms = contributionMs(c);
+    return ms > fromMs && ms <= toMs ? sum + (Number(c.amount_eur) || 0) : sum;
+  }, 0);
+}
+
 export function getPnLForRange(
   snapshots: Snapshot[],
   contributions: Contribution[],
@@ -232,14 +253,7 @@ export function getPnLForRange(
 
   const baseline = Number(baselineSnap.total_eur) || 0;
   const baselineMs = new Date(baselineSnap.created_at).getTime();
-  const nowMs = now.getTime();
-
-  const contributionsTotal = contributions
-    .filter((c) => {
-      const cMs = new Date(c.date).getTime();
-      return cMs >= baselineMs && cMs <= nowMs;
-    })
-    .reduce((sum, c) => sum + (Number(c.amount_eur) || 0), 0);
+  const contributionsTotal = sumContributions(contributions, baselineMs, now.getTime());
 
   const netDelta = currentTotal - baseline;
   const marketDelta = netDelta - contributionsTotal;
@@ -291,12 +305,7 @@ export function getHistoryChartData(
 
   return inRange.map((s) => {
     const t = new Date(s.created_at).getTime();
-    const contribsUpTo = contributions
-      .filter((c) => {
-        const cMs = new Date(c.date).getTime();
-        return cMs >= baselineMs && cMs <= t;
-      })
-      .reduce((sum, c) => sum + (Number(c.amount_eur) || 0), 0);
+    const contribsUpTo = sumContributions(contributions, baselineMs, t);
     const value = Number(s.total_eur) || 0;
     const marketDelta = value - baseline - contribsUpTo;
     const pct = baseline > 0 ? (marketDelta / baseline) * 100 : 0;
@@ -360,8 +369,8 @@ export interface TwrResult {
  * snapshots, so the size and timing of contributions don't distort the %.
  *
  * Works at day granularity: only the last snapshot of each calendar day is
- * used. A contribution dated D is attached to day D's snapshot and treated as
- * arriving at the start of that sub-period:
+ * used. A contribution recorded between two snapshots is attached to the
+ * later one and treated as arriving at the start of that sub-period:
  *   r = V_end / (V_start + flow) − 1
  * This matches the usual flow (buy during the day, snapshot that night).
  */
@@ -385,32 +394,18 @@ export function getTimeWeightedReturn(
     );
   if (inRange.length === 0) return null;
 
-  // Flows after the baseline, as day-start timestamps (contribution dates
-  // have no time component).
-  const flows = contributions
-    .map((c) => ({
-      ms: new Date(`${c.date.slice(0, 10)}T00:00:00`).getTime(),
-      eur: Number(c.amount_eur) || 0,
-    }))
-    .filter((f) => f.ms > baselineMs - 86_400_000 && f.eur !== 0)
-    .sort((a, b) => a.ms - b.ms);
-
   let index = 1;
-  let flowIdx = 0;
   let contributionsTotal = 0;
   const points: TwrPoint[] = [{ createdAt: inRange[0].created_at, pct: 0 }];
-  // Flows dated on/before the baseline snapshot's day are already in V_start.
-  while (flowIdx < flows.length && flows[flowIdx].ms <= baselineMs) flowIdx++;
 
   for (let i = 1; i < inRange.length; i++) {
     const prev = inRange[i - 1];
     const cur = inRange[i];
-    const curMs = new Date(cur.created_at).getTime();
-    let flow = 0;
-    while (flowIdx < flows.length && flows[flowIdx].ms <= curMs) {
-      flow += flows[flowIdx].eur;
-      flowIdx++;
-    }
+    const flow = sumContributions(
+      contributions,
+      new Date(prev.created_at).getTime(),
+      new Date(cur.created_at).getTime(),
+    );
     contributionsTotal += flow;
     const vStart = (Number(prev.total_eur) || 0) + flow;
     const vEnd = Number(cur.total_eur) || 0;

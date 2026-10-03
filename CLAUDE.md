@@ -98,12 +98,16 @@ Tables (all rows gated by `owner_id = auth.uid()`):
 - The pencil icon opens the manual-entry modal for overrides.
 
 ## How performance is measured
-- Resumen shows `getPnLForRange`: net change minus contributions in the period
-  (simple, in €). Its % is relative to the baseline total.
+- A contribution is placed in time by its `created_at` (when the Journal applied
+  it together with the balance/position change), **not** by its `date` label,
+  which may be backdated. Snapshots taken before `created_at` don't include the
+  money; snapshots after do. Same rule in all three calculations below.
+- Resumen shows `getPnLForRange`: net change minus contributions recorded after
+  the baseline snapshot (simple, in €). Its % is relative to the baseline total.
 - Benchmark shows `getTimeWeightedReturn` (TWR): one snapshot per day
-  (`lastSnapshotPerDay`), sub-period returns chained, contribution dated D
-  neutralised at the start of day D's sub-period. The % is independent of how
-  much was contributed. Benchmarks come from `/api/benchmark` (Yahoo ^GSPC and
+  (`lastSnapshotPerDay`), sub-period returns chained, contributions recorded
+  between two snapshots neutralised at the start of that sub-period. The % is
+  independent of how much was contributed. Benchmarks come from `/api/benchmark` (Yahoo ^GSPC and
   BTC-USD, CoinGecko fallback for BTC, Frankfurter USD/EUR series; 1h cache)
   and are fetched once when the tab mounts — this is the only network call
   outside UPDATE, and it never touches positions or snapshots.
