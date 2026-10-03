@@ -164,8 +164,8 @@ export function JournalTab({ positions, manualAssets, contributions, trades, usd
 
       <Card>
         <div className="flex items-center justify-between gap-2">
-          <CardTitle>Aportaciones</CardTitle>
-          <div className="flex items-center gap-2">
+          <CardTitle className="min-w-0">Aportaciones</CardTitle>
+          <div className="flex items-center gap-2 shrink-0">
             <Badge variant="muted">{contributions.length}</Badge>
             <ExportButton
               disabled={contributions.length === 0}
@@ -183,14 +183,14 @@ export function JournalTab({ positions, manualAssets, contributions, trades, usd
             </div>
           ) : (
             contributions.map((c) => (
-              <div key={c.id} className="py-2.5 flex items-center justify-between gap-3 text-sm">
-                <div className="min-w-0">
+              <div key={c.id} className="py-2.5 flex items-start justify-between gap-3 text-sm">
+                <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
                     <span className="whitespace-nowrap">{fmtDate(c.date)}</span>
                     <Badge variant="muted">{c.type}</Badge>
                   </div>
                   {c.note ? (
-                    <div className="text-xs text-[var(--muted)] truncate">{c.note}</div>
+                    <div className="text-xs text-[var(--muted)] break-words">{c.note}</div>
                   ) : null}
                 </div>
                 <span
@@ -229,8 +229,8 @@ function TradesCard({ trades }: { trades: Trade[] }) {
   return (
     <Card>
       <div className="flex items-center justify-between gap-2">
-        <CardTitle>Historial de operaciones</CardTitle>
-        <div className="flex items-center gap-2">
+        <CardTitle className="min-w-0">Historial de operaciones</CardTitle>
+        <div className="flex items-center gap-2 shrink-0">
           <Badge variant="muted">{trades.length}</Badge>
           <ExportButton disabled={trades.length === 0} onClick={() => exportTrades(trades)} />
         </div>
@@ -248,8 +248,8 @@ function TradesCard({ trades }: { trades: Trade[] }) {
           trades.map((t) => {
             const buy = t.shares > 0;
             return (
-              <div key={t.id} className="py-2.5 flex items-center justify-between gap-3 text-sm">
-                <div className="min-w-0">
+              <div key={t.id} className="py-2.5 flex items-start justify-between gap-3 text-sm">
+                <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="whitespace-nowrap">{fmtDate(t.date)}</span>
                     <Badge variant={buy ? "accent" : "warning"}>{buy ? "compra" : "venta"}</Badge>
@@ -259,7 +259,7 @@ function TradesCard({ trades }: { trades: Trade[] }) {
                       {t.price_usd != null ? ` × ${fmtUsd(t.price_usd)}` : ""}
                     </span>
                   </div>
-                  <div className="text-xs text-[var(--muted)] truncate">
+                  <div className="text-xs text-[var(--muted)] break-words">
                     {t.funding === "external"
                       ? buy
                         ? "dinero externo"

@@ -76,6 +76,9 @@ Tables (all rows gated by `owner_id = auth.uid()`):
   grouped by category, collapsible simulator) · **Benchmark** (`benchmark.tsx`:
   time-weighted return vs S&P 500 and BTC, € or $) · **Movimientos**
   (`journal.tsx`: manual ops + contributions history).
+- Tab navigation: top tab bar from `sm` up; below `sm` a fixed bottom bar with
+  icon + label (4 equal columns, safe-area padded) and the current tab name as
+  a small heading. `main` reserves bottom padding for it on mobile.
 - Persistent top header: total EUR + today's change · USD/EUR and BTC chips · UPDATE + pencil · last update.
 - Values displayed in EUR. Asset prices shown in USD.
 - FX/BTC chips show a status dot (LIVE / FALLBACK / MANUAL); clicking them opens

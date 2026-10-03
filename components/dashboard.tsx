@@ -1,7 +1,17 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Database, Info, LogOut, X } from "lucide-react";
+import {
+  ArrowLeftRight,
+  ChartLine,
+  Database,
+  Info,
+  LayoutDashboard,
+  LogOut,
+  Wallet,
+  X,
+  type LucideIcon,
+} from "lucide-react";
 import { Header } from "@/components/header";
 import { UpdatePricesModal } from "@/components/update-prices-modal";
 import { EditPositionModal, type PositionPayload } from "@/components/edit-position-modal";
@@ -48,11 +58,11 @@ import { CATEGORY_TARGETS } from "@/lib/policy";
 
 type Tab = "overview" | "portfolio" | "benchmark" | "journal";
 
-const TABS: Array<{ id: Tab; label: string }> = [
-  { id: "overview", label: "Resumen" },
-  { id: "portfolio", label: "Cartera" },
-  { id: "benchmark", label: "Benchmark" },
-  { id: "journal", label: "Movimientos" },
+const TABS: Array<{ id: Tab; label: string; icon: LucideIcon }> = [
+  { id: "overview", label: "Resumen", icon: LayoutDashboard },
+  { id: "portfolio", label: "Cartera", icon: Wallet },
+  { id: "benchmark", label: "Benchmark", icon: ChartLine },
+  { id: "journal", label: "Movimientos", icon: ArrowLeftRight },
 ];
 
 const DEFAULT_USD_EUR = 0.92;
@@ -772,14 +782,17 @@ export function Dashboard({ userId, userEmail, demoMode = false }: Props) {
         updating={updating}
       />
 
-      <main className="mx-auto max-w-6xl px-4 sm:px-6 py-4 sm:py-6 pb-[max(1.5rem,env(safe-area-inset-bottom))] flex-1 w-full">
-        <div className="flex items-center justify-between mb-4 sm:mb-6 gap-2 sm:gap-4 border-b border-[var(--border)]">
-          <nav className="flex gap-0.5 sm:gap-1 overflow-x-auto no-scrollbar -mb-px min-w-0 flex-1 -ml-2 sm:ml-0">
+      <main className="mx-auto max-w-6xl px-4 sm:px-6 py-4 sm:py-6 pb-[calc(5rem+env(safe-area-inset-bottom))] sm:pb-6 flex-1 w-full">
+        <div className="flex items-center justify-between mb-4 sm:mb-6 gap-2 sm:gap-4 sm:border-b border-[var(--border)]">
+          <h1 className="sm:hidden text-xs uppercase tracking-wider text-[var(--muted)]">
+            {TABS.find((t) => t.id === tab)?.label}
+          </h1>
+          <nav className="hidden sm:flex gap-1 -mb-px min-w-0 flex-1">
             {TABS.map((t) => (
               <button
                 key={t.id}
                 onClick={() => setTab(t.id)}
-                className={`shrink-0 px-2.5 sm:px-3 py-3 text-xs uppercase tracking-wider border-b-2 transition-colors whitespace-nowrap ${
+                className={`shrink-0 px-3 py-3 text-xs uppercase tracking-wider border-b-2 transition-colors whitespace-nowrap ${
                   tab === t.id
                     ? "border-[var(--accent)] text-[var(--foreground)]"
                     : "border-transparent text-[var(--muted)] hover:text-[var(--foreground)]"
@@ -936,6 +949,25 @@ export function Dashboard({ userId, userEmail, demoMode = false }: Props) {
           </>
         )}
       </main>
+
+      <nav className="sm:hidden fixed bottom-0 inset-x-0 z-40 grid grid-cols-4 border-t border-[var(--border)] bg-[var(--surface)]/90 backdrop-blur-sm pb-[env(safe-area-inset-bottom)]">
+        {TABS.map(({ id, label, icon: Icon }) => (
+          <button
+            key={id}
+            onClick={() => {
+              setTab(id);
+              window.scrollTo({ top: 0 });
+            }}
+            aria-current={tab === id ? "page" : undefined}
+            className={`flex flex-col items-center gap-1 pt-2.5 pb-2 text-[10px] uppercase tracking-normal transition-colors ${
+              tab === id ? "text-[var(--accent)]" : "text-[var(--muted)]"
+            }`}
+          >
+            <Icon size={18} strokeWidth={tab === id ? 2.25 : 1.75} />
+            {label}
+          </button>
+        ))}
+      </nav>
 
       <UpdatePricesModal
         open={modalOpen}

@@ -254,14 +254,14 @@ export function ManualOpForm({ positions, manualAssets, usdEur, onAdd }: Props) 
                 className={inputClass}
               >
                 <option value={FUNDING_EXTERNAL}>
-                  {kind === "buy" ? "Dinero externo (aportación)" : "Sale de la cartera (retirada)"}
+                  {kind === "buy" ? "Dinero externo" : "Sale de la cartera"}
                 </option>
                 {manualAssets.map((a) => (
                   <option key={a.id} value={a.name}>
                     {a.name}
                   </option>
                 ))}
-                <option value={FUNDING_NONE}>Sin contrapartida (solo ajustar posición)</option>
+                <option value={FUNDING_NONE}>Sin contrapartida</option>
               </select>
             </Field>
             {funding !== FUNDING_NONE ? (
@@ -280,9 +280,9 @@ export function ManualOpForm({ positions, manualAssets, usdEur, onAdd }: Props) 
           </div>
           <p className="mt-2 text-[11px] text-[var(--muted)]">
             {funding === FUNDING_NONE
-              ? "Ojo: sin contrapartida el cambio de valor contará como rendimiento de mercado."
+              ? "Solo se ajusta la posición. Ojo: el cambio de valor contará como rendimiento de mercado."
               : funding === FUNDING_EXTERNAL
-                ? "Se registra como aportación para que no cuente como rendimiento. Importe vacío = estimado con precio USD × tipo de cambio."
+                ? `Se registra como ${kind === "buy" ? "aportación" : "retirada"} para que no cuente como rendimiento. Importe vacío = estimado con precio USD × tipo de cambio.`
                 : "Se descuenta/abona en esa cuenta. Patrimonio y rendimiento quedan neutros."}
           </p>
         </>
