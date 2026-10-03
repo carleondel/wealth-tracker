@@ -1,9 +1,9 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { ChevronDown } from "lucide-react";
 import {
   CartesianGrid,
-  Legend,
   Line,
   LineChart,
   ReferenceLine,
@@ -13,7 +13,6 @@ import {
   YAxis,
 } from "recharts";
 import { Card, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { RangePills } from "@/components/ui/range-pills";
 import { fmtDate, fmtEur, fmtPct } from "@/lib/format";
 import {
@@ -86,7 +85,7 @@ export function BenchmarkTab({ snapshots, contributions }: Props) {
         : dates.map(() => null);
     }
     return twr.points.map((p, i) => ({
-      date: fmtDate(p.createdAt),
+      date: new Date(p.createdAt).toLocaleDateString("es-ES", { day: "2-digit", month: "short" }),
       portfolio: p.pct,
       spx: benchPct.spx[i],
       btc: benchPct.btc[i],
@@ -97,12 +96,17 @@ export function BenchmarkTab({ snapshots, contributions }: Props) {
   const summary = twr
     ? [
         { id: "portfolio", label: "Mi cartera", color: PORTFOLIO_COLOR, pct: twr.totalPct },
-        ...IDS.map((id) => ({
-          id,
-          label: BENCHMARKS[id].label,
-          color: BENCHMARKS[id].color,
-          pct: last?.[id] ?? null,
-        })),
+        ...IDS.map((id) => {
+          const pct = last?.[id] ?? null;
+          return {
+            id,
+            label: BENCHMARKS[id].label,
+            color: BENCHMARKS[id].color,
+            pct,
+            /** Mi cartera − benchmark, in percentage points. */
+            gap: pct == null ? null : twr.totalPct - pct,
+          };
+        }),
       ]
     : [];
 
@@ -147,12 +151,12 @@ export function BenchmarkTab({ snapshots, contributions }: Props) {
         <div className="mt-3 grid grid-cols-3 gap-2 sm:gap-4">
           {summary.map((s) => (
             <div key={s.id} className="min-w-0">
-              <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-wider text-[var(--muted)]">
-                <span className="inline-block w-2 h-2 rounded-sm shrink-0" style={{ background: s.color }} />
-                <span className="truncate">{s.label}</span>
+              <div className="flex items-start gap-1.5 text-[10px] uppercase tracking-normal sm:tracking-wider leading-tight text-[var(--muted)]">
+                <span className="inline-block w-2 h-2 mt-px rounded-sm shrink-0" style={{ background: s.color }} />
+                <span className="min-w-0 break-words">{s.label}</span>
               </div>
               <div
-                className={`mt-1 text-xl sm:text-2xl font-semibold tabular-nums ${
+                className={`mt-1 text-base min-[380px]:text-lg sm:text-2xl font-semibold tabular-nums whitespace-nowrap ${
                   s.pct == null
                     ? "text-[var(--muted)]"
                     : s.pct >= 0
@@ -162,40 +166,44 @@ export function BenchmarkTab({ snapshots, contributions }: Props) {
               >
                 {s.pct == null ? (loading ? "…" : "—") : fmtPct(s.pct, 1)}
               </div>
+              {"gap" in s && s.gap != null ? (
+                <div
+                  className={`mt-0.5 text-[10px] sm:text-xs tabular-nums whitespace-nowrap ${
+                    s.gap >= 0 ? "text-[var(--accent)]" : "text-[var(--danger)]"
+                  }`}
+                  title={`Mi cartera − ${s.label}, en puntos porcentuales`}
+                >
+                  tú {fmtPct(s.gap, 1).replace("%", " pp")}
+                </div>
+              ) : null}
             </div>
           ))}
         </div>
 
         {twr ? (
-          <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-[var(--muted)]">
-            <span>desde {fmtDate(twr.fromIso)}</span>
-            {last?.spx != null ? (
-              <Badge variant={twr.totalPct - last.spx >= 0 ? "accent" : "danger"}>
-                {fmtPct(twr.totalPct - last.spx, 1)} vs S&P
-              </Badge>
-            ) : null}
-            {last?.btc != null ? (
-              <Badge variant={twr.totalPct - last.btc >= 0 ? "accent" : "danger"}>
-                {fmtPct(twr.totalPct - last.btc, 1)} vs BTC
-              </Badge>
-            ) : null}
+          <div className="mt-3 text-[11px] sm:text-xs text-[var(--muted)]">
+            desde {fmtDate(twr.fromIso)}
             {Math.abs(twr.contributionsTotal) > 0.5 ? (
-              <span>
-                · {twr.contributionsTotal >= 0 ? "+" : ""}
-                {fmtEur(twr.contributionsTotal)} aportados (neutralizados)
-              </span>
+              <>
+                {" "}· sin contar{" "}
+                <span className="tabular-nums whitespace-nowrap">
+                  {twr.contributionsTotal >= 0 ? "+" : ""}
+                  {fmtEur(twr.contributionsTotal)}
+                </span>{" "}
+                de aportaciones
+              </>
             ) : null}
           </div>
         ) : null}
 
-        <div className="mt-4 h-56 sm:h-80 -mx-2 sm:mx-0">
+        <div className="mt-3 sm:mt-4 h-52 sm:h-80 -mx-2 sm:mx-0">
           {data.length === 0 ? (
             <div className="h-full flex items-center justify-center text-xs text-[var(--muted)]">
               Sin datos en este rango.
             </div>
           ) : (
             <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={data} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
+              <LineChart data={data} margin={{ top: 4, right: 16, left: 0, bottom: 0 }}>
                 <CartesianGrid stroke="var(--border)" strokeDasharray="3 3" vertical={false} />
                 <XAxis
                   dataKey="date"
@@ -210,7 +218,7 @@ export function BenchmarkTab({ snapshots, contributions }: Props) {
                   tick={{ fontSize: 10 }}
                   tickLine={false}
                   axisLine={false}
-                  width={44}
+                  width={40}
                   domain={["auto", "auto"]}
                   tickFormatter={(v: number) => `${v.toFixed(0)}%`}
                 />
@@ -224,7 +232,6 @@ export function BenchmarkTab({ snapshots, contributions }: Props) {
                   }}
                   formatter={(v) => (v == null ? "—" : fmtPct(Number(v) || 0))}
                 />
-                <Legend wrapperStyle={{ fontSize: 11 }} iconType="plainline" />
                 <Line
                   type="monotone"
                   dataKey="portfolio"
@@ -259,25 +266,30 @@ export function BenchmarkTab({ snapshots, contributions }: Props) {
       </Card>
 
       <Card>
-        <CardTitle>Cómo se calcula</CardTitle>
-        <ul className="mt-3 space-y-1.5 text-xs text-[var(--muted)] list-disc pl-4">
-          <li>
-            <strong className="text-[var(--foreground)]">Mi cartera</strong> es rendimiento{" "}
-            <em>time-weighted</em> (TWR): se encadenan los tramos entre snapshots diarios y
-            cada aportación se neutraliza en el día en que está registrada. Aportar más o
-            menos no mueve el %; solo el mercado y los intereses.
-          </li>
-          <li>
-            <strong className="text-[var(--foreground)]">S&amp;P 500</strong> (índice ^GSPC) y{" "}
-            <strong className="text-[var(--foreground)]">Bitcoin</strong> se comparan como si
-            hubieras comprado y mantenido desde el inicio del rango. En modo € se convierten
-            con el tipo USD/EUR diario del BCE, que es lo que vería un inversor en euros.
-          </li>
-          <li>
-            Los benchmarks usan el cierre del día; la cartera, el último snapshot de cada
-            día. Fines de semana y festivos se rellenan con el último valor disponible.
-          </li>
-        </ul>
+        <details className="group">
+          <summary className="flex items-center justify-between gap-2 cursor-pointer list-none [&::-webkit-details-marker]:hidden">
+            <CardTitle>Cómo se calcula</CardTitle>
+            <ChevronDown size={14} className="text-[var(--muted)] transition-transform group-open:rotate-180" />
+          </summary>
+          <ul className="mt-3 space-y-1.5 text-xs text-[var(--muted)] list-disc pl-4">
+            <li>
+              <strong className="text-[var(--foreground)]">Mi cartera</strong> es rendimiento{" "}
+              <em>time-weighted</em> (TWR): se encadenan los tramos entre snapshots diarios y
+              cada aportación se neutraliza en el tramo en el que la registras. Aportar más o
+              menos no mueve el %; solo el mercado y los intereses.
+            </li>
+            <li>
+              <strong className="text-[var(--foreground)]">S&amp;P 500</strong> (índice ^GSPC) y{" "}
+              <strong className="text-[var(--foreground)]">Bitcoin</strong> se comparan como si
+              hubieras comprado y mantenido desde el inicio del rango. En modo € se convierten
+              con el tipo USD/EUR diario del BCE, que es lo que vería un inversor en euros.
+            </li>
+            <li>
+              Los benchmarks usan el cierre del día; la cartera, el último snapshot de cada
+              día. Fines de semana y festivos se rellenan con el último valor disponible.
+            </li>
+          </ul>
+        </details>
       </Card>
     </div>
   );
