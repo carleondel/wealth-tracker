@@ -10,6 +10,19 @@ import { DEMO_MANUAL_ASSETS, DEMO_POSITIONS } from "./seed";
 
 const DEMO_OWNER = "demo";
 
+/**
+ * Fictitious entry prices so /demo can show cumulative P&L. Demo-only: the
+ * templates users seed from keep `avg_price_usd: null`, otherwise a fresh
+ * account would start with made-up gains.
+ */
+const DEMO_AVG_PRICES: Record<string, number> = {
+  "BTC-USD": 62000, MSTR: 280, B: 18, NEM: 42, UNH: 520, NVDA: 120,
+  GOOGL: 150, AMZN: 180, TSLA: 240, MSFT: 410, META: 480,
+  "USDC-USD": 1, "SOL-USD": 160, "XRP-USD": 0.6,
+};
+/** Extra demo target (on top of the template's) so both target states show. */
+const DEMO_TARGETS: Record<string, number> = { NVDA: 220 };
+
 export function makeDemoPositions(): Position[] {
   const now = new Date().toISOString();
   return DEMO_POSITIONS.map((p, i) => ({
@@ -17,11 +30,11 @@ export function makeDemoPositions(): Position[] {
     ticker: p.ticker,
     name: p.name,
     shares: p.shares,
-    avg_price_usd: p.avg_price_usd,
+    avg_price_usd: p.avg_price_usd ?? DEMO_AVG_PRICES[p.ticker] ?? null,
     category: p.category,
     platform: p.platform,
     role: p.role,
-    target_price_usd: p.target_price_usd,
+    target_price_usd: p.target_price_usd ?? DEMO_TARGETS[p.ticker] ?? null,
     is_crypto: p.is_crypto,
     created_at: now,
   }));
