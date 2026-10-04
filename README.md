@@ -160,6 +160,9 @@ cp .env.example .env.local
 | `FINNHUB_API_KEY` | for US stocks | Free at [finnhub.io](https://finnhub.io), 60 req/min. Server-side only. |
 | `SUPABASE_SERVICE_ROLE_KEY` | for the daily cron | Supabase → Project Settings → API → `service_role`. **Secret**, server-side only. |
 | `CRON_SECRET` | for the daily cron | Any long random string (`openssl rand -hex 32`). Vercel sends it to the cron route. |
+| `NEXT_PUBLIC_VAPID_PUBLIC_KEY` | for target alerts | Web Push public key (`npx web-push generate-vapid-keys`). Public by design. |
+| `VAPID_PRIVATE_KEY` | for target alerts | The matching private key. **Secret**, server-side only. |
+| `VAPID_SUBJECT` | for target alerts | `mailto:you@example.com` — contact sent to the push services. |
 
 ### 4. Run
 
@@ -201,6 +204,19 @@ Notes:
   any request without the matching `CRON_SECRET`.
 - Side effect: the daily write keeps a free Supabase project from pausing
   after 7 days of inactivity.
+
+### Price-target alerts (Web Push)
+
+The same cron checks every position with a target price and sends a push
+notification the first time the price reaches it (re-armed once it falls more
+than 5% below, or when the target changes).
+
+1. Run `supabase/migrations/008_push.sql`.
+2. `npx web-push generate-vapid-keys` and add the three `VAPID` variables above
+   in Vercel (and `.env.local` to test locally). Redeploy.
+3. In the app: Resumen → Plan → "Avisarme al llegar al objetivo" → Activar. A
+   test notification confirms it works. On iPhone this needs iOS 16.4+ and the
+   app added to the home screen, opened from there.
 
 ---
 

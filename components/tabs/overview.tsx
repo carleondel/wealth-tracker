@@ -20,6 +20,7 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { RANGES, RangePills } from "@/components/ui/range-pills";
 import { usePersistentState } from "@/lib/use-persistent-state";
+import { PushToggle } from "@/components/push-toggle";
 import { fmtDate, fmtEur, fmtPct, fmtUsd } from "@/lib/format";
 import { CATEGORY_COLORS, POLICY } from "@/lib/policy";
 import {
@@ -47,6 +48,8 @@ interface Props {
   positions: Position[];
   snapshots: Snapshot[];
   contributions: Contribution[];
+  /** User to save push subscriptions for; null hides the alerts toggle. */
+  pushUserId: string | null;
 }
 
 export function OverviewTab({
@@ -56,6 +59,7 @@ export function OverviewTab({
   positions,
   snapshots,
   contributions,
+  pushUserId,
 }: Props) {
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
@@ -69,7 +73,7 @@ export function OverviewTab({
       <DistributionCard breakdown={breakdown} totalEur={totalEur} />
       <div className="grid grid-cols-1 gap-4 content-start">
         <LiquidityCard breakdown={breakdown} />
-        <PlanCard breakdown={breakdown} positions={positions} prices={prices} />
+        <PlanCard breakdown={breakdown} positions={positions} prices={prices} pushUserId={pushUserId} />
       </div>
     </div>
   );
@@ -388,10 +392,12 @@ function PlanCard({
   breakdown,
   positions,
   prices,
+  pushUserId,
 }: {
   breakdown: Breakdown;
   positions: Position[];
   prices: PriceMap;
+  pushUserId: string | null;
 }) {
   const rule = getActiveContributionRule(breakdown);
   const withTarget = positions.filter((p) => p.target_price_usd != null);
@@ -434,6 +440,11 @@ function PlanCard({
               </div>
             );
           })}
+          {pushUserId ? (
+            <div className="pt-3 border-t border-[var(--border)]">
+              <PushToggle userId={pushUserId} />
+            </div>
+          ) : null}
         </div>
       ) : null}
     </Card>
