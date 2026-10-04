@@ -139,6 +139,13 @@ Tables (all rows gated by `owner_id = auth.uid()`):
   applied `adjust_position` also inserts a `trades` row.
 - The Journal lists the trade log and contributions, each with a CSV export
   (`lib/csv.ts`, client-side Blob download).
+- Every trade/contribution row has an undo button. `lib/journal-undo.ts` builds
+  a plan (shown for confirmation) by finding the counterpart the form created:
+  account by `trade.funding`, external money by the "compra|venta <n> <TICKER>"
+  contribution note, deposits by the account name in the note. Buys with price
+  invert the weighted-average step. A contribution already included in some
+  snapshot is cancelled with an opposite contribution dated today instead of
+  deleted, so performance doesn't jump. `applyUndo` in the dashboard runs it.
 
 ## Project structure
 ```

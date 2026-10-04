@@ -34,6 +34,11 @@ export function fmtDateTime(iso: string): string {
   });
 }
 
+/** Today (or `d`) as YYYY-MM-DD in local time — what a date input shows. */
+export function localDateIso(d: Date = new Date()): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
 export function fmtDate(iso: string): string {
   return new Date(iso).toLocaleDateString("es-ES", {
     day: "2-digit",
