@@ -1065,6 +1065,7 @@ export function Dashboard({ userId, userEmail, demoMode = false }: Props) {
                 positions={positions}
                 snapshots={snapshots}
                 contributions={contributions}
+                pushUserId={demoMode ? null : userId}
               />
             )}
             {tab === "portfolio" && (

@@ -26,7 +26,8 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=sb_publishable_...   # or the legacy JWT anon key
 
 `NEXT_PUBLIC_*` are public-by-design (Supabase RLS enforces security).
 Server-only: `FINNHUB_API_KEY`, and for the daily cron `SUPABASE_SERVICE_ROLE_KEY`
-+ `CRON_SECRET` (see README "Daily snapshot").
++ `CRON_SECRET` (see README "Daily snapshot"). Target alerts: `NEXT_PUBLIC_VAPID_PUBLIC_KEY`
+(public) + `VAPID_PRIVATE_KEY` + `VAPID_SUBJECT` (server-only).
 
 ## Data model
 SQL lives in `supabase/schema.sql` (base tables) and
@@ -106,7 +107,12 @@ Tables (all rows gated by `owner_id = auth.uid()`):
   `/api/prices` and `/api/cron/snapshot`. Server-only.
 - `vercel.json` schedules `/api/cron/snapshot` daily at 22:00 UTC: service-role
   client, one price fetch for the union of tickers, one snapshot per user.
-  Protected by `CRON_SECRET` bearer header.
+  Protected by `CRON_SECRET` bearer header. After the snapshots it runs
+  `sendTargetAlerts` (`lib/push-server.ts`): Web Push once per target crossing,
+  tracked in `target_alerts`, re-armed below 95% of the target; only marked as
+  notified if some device received it. Devices live in `push_subscriptions`
+  (saved by `components/push-toggle.tsx`, in Resumen → Plan; `public/sw.js`
+  shows the notification). `/api/push/test` sends a test to the caller.
 - User clicks `UPDATE` → `/api/prices?tickers=…` → parallel fan-out to:
   - CoinGecko `simple/price?include_24hr_change=true` for crypto (BTC-USD, SOL-USD, XRP-USD, USDC-USD…).
   - Finnhub single-symbol CSV per US stock ticker (`...q/l/?s=<ticker>.us&f=sd2t2ohlcv&h&e=csv`). Intraday % change derived from `(close − open) / open`.
@@ -199,6 +205,7 @@ supabase/
     005_trades.sql
     006_speculation_cap.sql
     007_fees_income.sql
+    008_push.sql
 ```
 
 ## Secrets + repo hygiene

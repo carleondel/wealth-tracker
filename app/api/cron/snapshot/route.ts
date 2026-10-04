@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { fetchPrices } from "@/lib/prices-server";
+import { pushConfigured, sendTargetAlerts } from "@/lib/push-server";
 import { getCategoryBreakdown, getTotalEur } from "@/lib/calculations";
 import type { ManualAsset, Position, Snapshot } from "@/lib/types";
 
@@ -83,10 +84,20 @@ export async function GET(request: Request) {
   const ins = await admin.from("snapshots").insert(rows);
   if (ins.error) return NextResponse.json({ error: ins.error.message }, { status: 500 });
 
+  // Price-target alerts piggyback on the same price fetch. Never fails the cron.
+  const push = pushConfigured()
+    ? await sendTargetAlerts(admin, positions, result.prices).catch((e) => ({
+        alerts: 0,
+        sent: 0,
+        errors: [e instanceof Error ? e.message : String(e)],
+      }))
+    : { alerts: 0, sent: 0, errors: ["push not configured (VAPID keys missing)"] };
+
   return NextResponse.json({
     users: owners.size,
     saved: rows.length,
     tickers: tickers.length,
     errors: result.errors,
+    push,
   });
 }
