@@ -15,6 +15,17 @@ export type JournalOp =
       /** Cash side in EUR and where it came from/went, for the trade log. */
       amount_eur?: number | null;
       funding?: string | null;
+      /** Commission in EUR; the cash counterpart op already includes it. */
+      fee_eur?: number | null;
+    }
+  | {
+      type: "income";
+      ticker: string;
+      gross_eur: number;
+      withholding_eur: number;
+      /** Liquidity account that receives gross − withholding. */
+      account: string;
+      date?: string | null;
     }
   | {
       type: "set_position";
@@ -77,8 +88,15 @@ export function describeOp(
       const unit = positionUnit(p, op.ticker);
       const next = p ? p.shares + op.delta_shares : null;
       const priceSuffix = op.price_usd ? ` a $${op.price_usd}` : "";
+      const feeSuffix = op.fee_eur ? ` · comisión €${round(op.fee_eur)}` : "";
       const missing = p ? "" : " (posición no encontrada)";
-      return `${direction} ${abs} ${op.ticker}${priceSuffix}${dateSuffix(op.date)}${missing}${next != null ? ` → queda ${round(next)} ${unit}` : ""}`;
+      return `${direction} ${abs} ${op.ticker}${priceSuffix}${feeSuffix}${dateSuffix(op.date)}${missing}${next != null ? ` → queda ${round(next)} ${unit}` : ""}`;
+    }
+    case "income": {
+      const a = findAssetByName(assets, op.account);
+      const net = op.gross_eur - op.withholding_eur;
+      const wh = op.withholding_eur ? ` (bruto €${round(op.gross_eur)} − retención €${round(op.withholding_eur)})` : "";
+      return `dividendo ${op.ticker} €${round(net)}${wh} a ${a?.name ?? `${op.account} (cuenta no encontrada)`}${dateSuffix(op.date)}`;
     }
     case "set_position": {
       const p = findPositionByTicker(positions, op.ticker);

@@ -53,6 +53,7 @@ import type {
   PriceMap,
   PricesResult,
   Snapshot,
+  Income,
   Trade,
   UserSettings,
 } from "@/lib/types";
@@ -86,6 +87,7 @@ export function Dashboard({ userId, userEmail, demoMode = false }: Props) {
   const [snapshots, setSnapshots] = useState<Snapshot[]>([]);
   const [contributions, setContributions] = useState<Contribution[]>([]);
   const [trades, setTrades] = useState<Trade[]>([]);
+  const [income, setIncome] = useState<Income[]>([]);
   const [categoryTargets, setCategoryTargets] = useState<CategoryTargets>(CATEGORY_TARGETS);
   const [speculationCapPct, setSpeculationCapPct] = useState<number>(POLICY.speculationCapPct);
   const [prices, setPrices] = useState<PriceMap>({});
@@ -166,7 +168,7 @@ export function Dashboard({ userId, userEmail, demoMode = false }: Props) {
           return;
         }
 
-        const [p, m, s, c, st, t] = await Promise.all([
+        const [p, m, s, c, st, t, inc] = await Promise.all([
           supabase.from("positions").select("*").order("created_at"),
           supabase.from("manual_assets").select("*").order("name"),
           supabase
@@ -183,7 +185,14 @@ export function Dashboard({ userId, userEmail, demoMode = false }: Props) {
             .select("*")
             .order("date", { ascending: false })
             .order("created_at", { ascending: false }),
+          supabase
+            .from("income")
+            .select("*")
+            .order("date", { ascending: false })
+            .order("created_at", { ascending: false }),
         ]);
+        // Not fatal: before migration 007 the table doesn't exist yet.
+        setIncome(inc.error ? [] : (inc.data as Income[]));
         if (p.error) throw p.error;
         if (m.error) throw m.error;
         if (s.error) throw s.error;
@@ -627,9 +636,10 @@ export function Dashboard({ userId, userEmail, demoMode = false }: Props) {
               updates.avg_price_usd =
                 nextShares > 0 ? (prevCost + newCost) / nextShares : op.price_usd;
             }
+            const feeUsd = op.fee_eur && usdEur > 0 ? op.fee_eur / usdEur : 0;
             const realized =
               op.delta_shares < 0 && op.price_usd && existing.avg_price_usd != null
-                ? (op.price_usd - existing.avg_price_usd) * Math.abs(op.delta_shares)
+                ? (op.price_usd - existing.avg_price_usd) * Math.abs(op.delta_shares) - feeUsd
                 : null;
             const tradeRow = {
               ticker: existing.ticker,
@@ -640,6 +650,8 @@ export function Dashboard({ userId, userEmail, demoMode = false }: Props) {
               realized_usd: realized,
               date: op.date ?? localDateIso(),
               note: null,
+              // Only sent when set, so trades keep working before migration 007.
+              ...(op.fee_eur ? { fee_eur: op.fee_eur } : {}),
             };
             if (demoMode) {
               posMap.set(existing.id, { ...existing, ...updates });
@@ -776,6 +788,48 @@ export function Dashboard({ userId, userEmail, demoMode = false }: Props) {
               setContributions((prev) => [data as Contribution, ...prev]);
             }
             applied++;
+          } else if (op.type === "income") {
+            const existing = findAssetByName(Array.from(assetMap.values()), op.account);
+            if (!existing) {
+              failed.push(`${describeOp(op, positions, manualAssets)} — cuenta no encontrada`);
+              continue;
+            }
+            const row = {
+              ticker: op.ticker,
+              gross_eur: op.gross_eur,
+              withholding_eur: op.withholding_eur,
+              account: existing.name,
+              date: op.date ?? localDateIso(),
+              note: null,
+            };
+            // Record first: if the table is missing, the balance is left untouched.
+            let saved: Income;
+            if (demoMode) {
+              saved = { id: localId(), created_at: nowIso, ...row };
+            } else {
+              const { data, error } = await supabase
+                .from("income")
+                .insert({ owner_id: userId, ...row })
+                .select()
+                .single();
+              if (error) throw error;
+              saved = data as Income;
+            }
+            const nextValue = Number(existing.value_eur) + op.gross_eur - op.withholding_eur;
+            if (demoMode) {
+              assetMap.set(existing.id, { ...existing, value_eur: nextValue, updated_at: nowIso });
+            } else {
+              const { data, error } = await supabase
+                .from("manual_assets")
+                .update({ value_eur: nextValue, updated_at: nowIso })
+                .eq("id", existing.id)
+                .select()
+                .single();
+              if (error) throw error;
+              assetMap.set(existing.id, data as ManualAsset);
+            }
+            setIncome((prev) => [saved, ...prev]);
+            applied++;
           }
         } catch (e) {
           failed.push(
@@ -788,7 +842,7 @@ export function Dashboard({ userId, userEmail, demoMode = false }: Props) {
       setManualAssets(Array.from(assetMap.values()));
       return { applied, failed };
     },
-    [positions, manualAssets, userId, demoMode],
+    [positions, manualAssets, userId, demoMode, usdEur],
   );
 
   /** Runs an undo plan (lib/journal-undo.ts). Stops at the first failure. */
@@ -830,6 +884,12 @@ export function Dashboard({ userId, userEmail, demoMode = false }: Props) {
             if (error) throw error;
           }
           setContributions((prev) => prev.filter((x) => x.id !== fx.id));
+        } else if (fx.kind === "delete_income") {
+          if (!demoMode) {
+            const { error } = await supabase.from("income").delete().eq("id", fx.id);
+            if (error) throw error;
+          }
+          setIncome((prev) => prev.filter((x) => x.id !== fx.id));
         } else {
           const row = {
             amount_eur: -Number(fx.of.amount_eur),
@@ -1034,6 +1094,7 @@ export function Dashboard({ userId, userEmail, demoMode = false }: Props) {
                 manualAssets={manualAssets}
                 contributions={contributions}
                 trades={trades}
+                income={income}
                 snapshots={snapshots}
                 usdEur={usdEur}
                 onApply={applyJournalOps}
