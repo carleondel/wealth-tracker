@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Trash2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { PLATFORMS, type Category, type Platform, type Position, type Role } from "@/lib/types";
@@ -41,45 +41,40 @@ interface Props {
   onDelete?: (id: string) => Promise<void>;
 }
 
-export function EditPositionModal({
-  open,
+export function EditPositionModal(props: Props) {
+  // Mounted only while open (and per position) so the form starts fresh each time.
+  if (!props.open) return null;
+  return <EditPositionForm key={props.position?.id ?? "new"} {...props} />;
+}
+
+function EditPositionForm({
   position,
   onCancel,
   onSave,
   onDelete,
 }: Props) {
-  const [form, setForm] = useState<PositionPayload>(blank());
+  const [form, setForm] = useState<PositionPayload>(() =>
+    position
+      ? {
+          ticker: position.ticker,
+          name: position.name,
+          shares: Number(position.shares) || 0,
+          avg_price_usd:
+            position.avg_price_usd != null ? Number(position.avg_price_usd) : null,
+          target_price_usd:
+            position.target_price_usd != null
+              ? Number(position.target_price_usd)
+              : null,
+          category: position.category,
+          platform: position.platform,
+          role: position.role,
+          is_crypto: position.is_crypto,
+        }
+      : blank(),
+  );
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [err, setErr] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!open) return;
-    setErr(null);
-    setSaving(false);
-    setDeleting(false);
-    if (position) {
-      setForm({
-        ticker: position.ticker,
-        name: position.name,
-        shares: Number(position.shares) || 0,
-        avg_price_usd:
-          position.avg_price_usd != null ? Number(position.avg_price_usd) : null,
-        target_price_usd:
-          position.target_price_usd != null
-            ? Number(position.target_price_usd)
-            : null,
-        category: position.category,
-        platform: position.platform,
-        role: position.role,
-        is_crypto: position.is_crypto,
-      });
-    } else {
-      setForm(blank());
-    }
-  }, [open, position]);
-
-  if (!open) return null;
 
   function update<K extends keyof PositionPayload>(
     key: K,

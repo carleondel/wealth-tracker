@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Trash2, X, Zap } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -34,41 +34,35 @@ interface Props {
   onApplyInterest?: (asset: ManualAsset) => Promise<void>;
 }
 
-export function EditAssetModal({
-  open,
+export function EditAssetModal(props: Props) {
+  // Mounted only while open (and per asset) so the form starts fresh each time.
+  if (!props.open) return null;
+  return <EditAssetForm key={props.asset?.id ?? "new"} {...props} />;
+}
+
+function EditAssetForm({
   asset,
   onCancel,
   onSave,
   onDelete,
   onApplyInterest,
 }: Props) {
-  const [form, setForm] = useState<AssetPayload>(blank());
+  const [form, setForm] = useState<AssetPayload>(() =>
+    asset
+      ? {
+          name: asset.name,
+          value_eur: Number(asset.value_eur) || 0,
+          category: asset.category,
+          platform: asset.platform,
+          rate_label: asset.rate_label,
+          interest_rate_annual: Number(asset.interest_rate_annual) || 0,
+        }
+      : blank(),
+  );
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [applying, setApplying] = useState(false);
   const [err, setErr] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!open) return;
-    setErr(null);
-    setSaving(false);
-    setDeleting(false);
-    setApplying(false);
-    if (asset) {
-      setForm({
-        name: asset.name,
-        value_eur: Number(asset.value_eur) || 0,
-        category: asset.category,
-        platform: asset.platform,
-        rate_label: asset.rate_label,
-        interest_rate_annual: Number(asset.interest_rate_annual) || 0,
-      });
-    } else {
-      setForm(blank());
-    }
-  }, [open, asset]);
-
-  if (!open) return null;
 
   const accrual = asset ? getAccruedInterest(asset) : null;
 

@@ -22,7 +22,6 @@ import { PortfolioTab } from "@/components/tabs/portfolio";
 import { JournalTab } from "@/components/tabs/journal";
 import { BenchmarkTab } from "@/components/tabs/benchmark";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { supabase } from "@/lib/supabase";
 import {
   getAccruedInterest,
@@ -106,116 +105,115 @@ export function Dashboard({ userId, userEmail, demoMode = false }: Props) {
   const [err, setErr] = useState<string | null>(null);
   const [demoBannerOpen, setDemoBannerOpen] = useState(true);
 
-  const loadAll = useCallback(async () => {
-    setLoading(true);
-    setErr(null);
-    try {
-      if (demoMode) {
-        const pos = makeDemoPositions();
-        const assets = makeDemoManualAssets();
-        const contribs = makeDemoContributions();
-        setPositions(pos);
-        setManualAssets(assets);
-        setContributions(contribs);
-
-        // Fetch live prices so the demo looks real.
-        try {
-          const tickers = pos.map((p) => p.ticker).join(",");
-          const res = await fetch(
-            `/api/prices?tickers=${encodeURIComponent(tickers)}`,
-            { cache: "no-store" },
-          );
-          if (res.ok) {
-            const data = (await res.json()) as PricesResult;
-            if (Object.keys(data.prices ?? {}).length > 0) {
-              setPrices(data.prices);
-              setUsdEur(data.usdEur || DEFAULT_USD_EUR);
-              const btc = data.btcUsd || data.prices["BTC-USD"]?.price || DEFAULT_BTC;
-              setBtcUsd(btc);
-              setFxSource("LIVE");
-              setBtcSource("LIVE");
-              // Generate a realistic history curve.
-              const breakdown = getCategoryBreakdown(
-                pos,
-                assets,
-                data.prices,
-                data.usdEur,
-              );
-              const total = getTotalEur(breakdown);
-              const fakeSnaps = generateDemoSnapshots(
-                total,
-                breakdown,
-                data.prices,
-                data.usdEur,
-                btc,
-                20,
-              );
-              setSnapshots(fakeSnaps);
-            }
-          }
-        } catch {
-          // Demo still usable without network; just no chart data.
-        }
-        return;
-      }
-
-      const [p, m, s, c, st, t] = await Promise.all([
-        supabase.from("positions").select("*").order("created_at"),
-        supabase.from("manual_assets").select("*").order("name"),
-        supabase
-          .from("snapshots")
-          .select("*")
-          .order("created_at", { ascending: false }),
-        supabase
-          .from("contributions")
-          .select("*")
-          .order("date", { ascending: false }),
-        supabase.from("user_settings").select("*").maybeSingle(),
-        supabase
-          .from("trades")
-          .select("*")
-          .order("date", { ascending: false })
-          .order("created_at", { ascending: false }),
-      ]);
-      if (p.error) throw p.error;
-      if (m.error) throw m.error;
-      if (s.error) throw s.error;
-      if (c.error) throw c.error;
-      if (st.error) throw st.error;
-      if (t.error) throw t.error;
-      setTrades(t.data as Trade[]);
-
-      setPositions(p.data as Position[]);
-      setManualAssets(m.data as ManualAsset[]);
-      setSnapshots(s.data as Snapshot[]);
-      setContributions(c.data as Contribution[]);
-      const settings = st.data as UserSettings | null;
-      setCategoryTargets({
-        ...CATEGORY_TARGETS,
-        ...(settings?.category_targets ?? {}),
-      });
-      setSpeculationCapPct(
-        settings?.speculation_cap_pct != null
-          ? Number(settings.speculation_cap_pct)
-          : POLICY.speculationCapPct,
-      );
-
-      const latest = (s.data as Snapshot[])[0];
-      if (latest) {
-        setUsdEur(Number(latest.usd_eur_rate) || DEFAULT_USD_EUR);
-        setBtcUsd(Number(latest.btc_price_usd) || DEFAULT_BTC);
-        setPrices((latest.prices as unknown as PriceMap) ?? {});
-      }
-    } catch (e) {
-      setErr(e instanceof Error ? e.message : String(e));
-    } finally {
-      setLoading(false);
-    }
-  }, [demoMode]);
-
+  // Runs once on mount; `loading` starts true and `err` null, so no reset here.
   useEffect(() => {
+    async function loadAll() {
+      try {
+        if (demoMode) {
+          const pos = makeDemoPositions();
+          const assets = makeDemoManualAssets();
+          const contribs = makeDemoContributions();
+
+          // Fetch live prices so the demo looks real.
+          try {
+            const tickers = pos.map((p) => p.ticker).join(",");
+            const res = await fetch(
+              `/api/prices?tickers=${encodeURIComponent(tickers)}`,
+              { cache: "no-store" },
+            );
+            if (res.ok) {
+              const data = (await res.json()) as PricesResult;
+              if (Object.keys(data.prices ?? {}).length > 0) {
+                setPrices(data.prices);
+                setUsdEur(data.usdEur || DEFAULT_USD_EUR);
+                const btc = data.btcUsd || data.prices["BTC-USD"]?.price || DEFAULT_BTC;
+                setBtcUsd(btc);
+                setFxSource("LIVE");
+                setBtcSource("LIVE");
+                // Generate a realistic history curve.
+                const breakdown = getCategoryBreakdown(
+                  pos,
+                  assets,
+                  data.prices,
+                  data.usdEur,
+                );
+                const total = getTotalEur(breakdown);
+                const fakeSnaps = generateDemoSnapshots(
+                  total,
+                  breakdown,
+                  data.prices,
+                  data.usdEur,
+                  btc,
+                  20,
+                );
+                setSnapshots(fakeSnaps);
+              }
+            }
+          } catch {
+            // Demo still usable without network; just no chart data.
+          }
+          // After the fetch so no state is set synchronously inside the mount effect.
+          setPositions(pos);
+          setManualAssets(assets);
+          setContributions(contribs);
+          return;
+        }
+
+        const [p, m, s, c, st, t] = await Promise.all([
+          supabase.from("positions").select("*").order("created_at"),
+          supabase.from("manual_assets").select("*").order("name"),
+          supabase
+            .from("snapshots")
+            .select("*")
+            .order("created_at", { ascending: false }),
+          supabase
+            .from("contributions")
+            .select("*")
+            .order("date", { ascending: false }),
+          supabase.from("user_settings").select("*").maybeSingle(),
+          supabase
+            .from("trades")
+            .select("*")
+            .order("date", { ascending: false })
+            .order("created_at", { ascending: false }),
+        ]);
+        if (p.error) throw p.error;
+        if (m.error) throw m.error;
+        if (s.error) throw s.error;
+        if (c.error) throw c.error;
+        if (st.error) throw st.error;
+        if (t.error) throw t.error;
+        setTrades(t.data as Trade[]);
+
+        setPositions(p.data as Position[]);
+        setManualAssets(m.data as ManualAsset[]);
+        setSnapshots(s.data as Snapshot[]);
+        setContributions(c.data as Contribution[]);
+        const settings = st.data as UserSettings | null;
+        setCategoryTargets({
+          ...CATEGORY_TARGETS,
+          ...(settings?.category_targets ?? {}),
+        });
+        setSpeculationCapPct(
+          settings?.speculation_cap_pct != null
+            ? Number(settings.speculation_cap_pct)
+            : POLICY.speculationCapPct,
+        );
+
+        const latest = (s.data as Snapshot[])[0];
+        if (latest) {
+          setUsdEur(Number(latest.usd_eur_rate) || DEFAULT_USD_EUR);
+          setBtcUsd(Number(latest.btc_price_usd) || DEFAULT_BTC);
+          setPrices((latest.prices as unknown as PriceMap) ?? {});
+        }
+      } catch (e) {
+        setErr(e instanceof Error ? e.message : String(e));
+      } finally {
+        setLoading(false);
+      }
+    }
     loadAll();
-  }, [loadAll]);
+  }, [demoMode]);
 
   const breakdown = useMemo(
     () => getCategoryBreakdown(positions, manualAssets, prices, usdEur),
