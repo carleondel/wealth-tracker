@@ -78,7 +78,13 @@ Tables (all rows gated by `owner_id = auth.uid()`):
   (`journal.tsx`: manual ops + contributions history).
 - Tab navigation: top tab bar from `sm` up; below `sm` a fixed bottom bar with
   icon + label (4 equal columns, safe-area padded) and the current tab name as
-  a small heading. `main` reserves bottom padding for it on mobile.
+  a small heading. `main` reserves bottom padding for it on mobile. The bar
+  hides while scrolling down and returns on scroll up (`useHideOnScrollDown`).
+- Header on phones is not sticky: it scrolls away and a fixed one-line bar
+  (total, day %, pencil, update icon) slides in once it's out of view
+  (IntersectionObserver in `header.tsx`). Never shrink a sticky header on
+  scroll — the layout shift makes the scroll position jump. From `sm` up the
+  full header stays sticky.
 - Persistent top header: total EUR + today's change · USD/EUR and BTC chips · UPDATE + pencil · last update.
 - Values displayed in EUR. Asset prices shown in USD.
 - FX/BTC chips show a status dot (LIVE / FALLBACK / MANUAL); clicking them opens
