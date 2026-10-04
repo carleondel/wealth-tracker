@@ -6,7 +6,16 @@ export const POLICY = {
   monthlyContributionEur: 200,
   mstrTargetUsd: 450,
   mstrExitBandUsd: { min: 400, max: 425 },
+  /** Default max weight of the speculative bucket, % of invested capital. */
+  speculationCapPct: 15,
 } as const;
+
+/**
+ * Roles that make up the short-term speculative pool. Everything else that
+ * isn't cash counts as long-term. Cash (role `caja`, manual assets) is left
+ * out of both so the split reflects how the invested money is used.
+ */
+export const SPECULATIVE_ROLES: ReadonlySet<Role> = new Set<Role>(["tactica"]);
 
 export const CATEGORY_COLORS: Record<Category, string> = {
   Crypto: "#F7931A",

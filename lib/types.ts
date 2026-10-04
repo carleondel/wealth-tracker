@@ -87,6 +87,8 @@ export type CategoryTargets = Record<Category, number>;
 export interface UserSettings {
   owner_id: string;
   category_targets: Partial<CategoryTargets>;
+  /** Percent of invested capital; null = POLICY.speculationCapPct. */
+  speculation_cap_pct: number | null;
   updated_at: string;
 }
 
