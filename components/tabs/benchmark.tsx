@@ -13,7 +13,8 @@ import {
   YAxis,
 } from "recharts";
 import { Card, CardTitle } from "@/components/ui/card";
-import { RangePills } from "@/components/ui/range-pills";
+import { RANGES, RangePills } from "@/components/ui/range-pills";
+import { usePersistentState } from "@/lib/use-persistent-state";
 import { fmtDate, fmtEur, fmtPct, fmtUsd } from "@/lib/format";
 import {
   getTimeWeightedReturn,
@@ -38,8 +39,12 @@ const PORTFOLIO_COLOR = "#52D9A4";
 const IDS = Object.keys(BENCHMARKS) as BenchmarkId[];
 
 export function BenchmarkTab({ snapshots, contributions }: Props) {
-  const [range, setRange] = useState<PnLRange>("YTD");
-  const [currency, setCurrency] = useState<BenchmarkCurrency>("EUR");
+  const [range, setRange] = usePersistentState<PnLRange>("wt:benchmark:range", "YTD", RANGES);
+  const [currency, setCurrency] = usePersistentState<BenchmarkCurrency>(
+    "wt:benchmark:currency",
+    "EUR",
+    ["EUR", "USD"],
+  );
   const [bench, setBench] = useState<BenchmarkResult | null>(null);
   const [err, setErr] = useState<string | null>(null);
 

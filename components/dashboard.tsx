@@ -23,6 +23,7 @@ import { JournalTab } from "@/components/tabs/journal";
 import { BenchmarkTab } from "@/components/tabs/benchmark";
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/lib/supabase";
+import { usePersistentState } from "@/lib/use-persistent-state";
 import {
   getAccruedInterest,
   getCategoryBreakdown,
@@ -94,7 +95,11 @@ export function Dashboard({ userId, userEmail, demoMode = false }: Props) {
   const [btcSource, setBtcSource] = useState<"LIVE" | "MANUAL" | "FALLBACK">(
     "FALLBACK",
   );
-  const [tab, setTab] = useState<Tab>("overview");
+  const [tab, setTab] = usePersistentState<Tab>(
+    "wt:tab",
+    "overview",
+    TABS.map((t) => t.id),
+  );
   const [navHidden, setNavHidden] = useHideOnScrollDown();
   const [modalOpen, setModalOpen] = useState(false);
   const [editingPosition, setEditingPosition] = useState<Position | null | undefined>(undefined);

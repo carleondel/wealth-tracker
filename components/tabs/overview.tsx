@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import {
   Area,
   AreaChart,
@@ -18,7 +18,8 @@ import {
 import { Card, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { RangePills } from "@/components/ui/range-pills";
+import { RANGES, RangePills } from "@/components/ui/range-pills";
+import { usePersistentState } from "@/lib/use-persistent-state";
 import { fmtDate, fmtEur, fmtPct, fmtUsd } from "@/lib/format";
 import { CATEGORY_COLORS, POLICY } from "@/lib/policy";
 import {
@@ -85,8 +86,8 @@ function PerformanceCard({
   contributions: Contribution[];
   currentTotal: number;
 }) {
-  const [range, setRange] = useState<PnLRange>("30D");
-  const [mode, setMode] = useState<Mode>("value");
+  const [range, setRange] = usePersistentState<PnLRange>("wt:overview:range", "30D", RANGES);
+  const [mode, setMode] = usePersistentState<Mode>("wt:overview:mode", "value", ["value", "pct"]);
 
   const result = getPnLForRange(snapshots, contributions, currentTotal, range);
   const data = useMemo(
