@@ -150,6 +150,11 @@ Tables (all rows gated by `owner_id = auth.uid()`):
   invert the weighted-average step. A contribution already included in some
   snapshot is cancelled with an opposite contribution dated today instead of
   deleted, so performance doesn't jump. `applyUndo` in the dashboard runs it.
+- "Resumen fiscal (FIFO)" (folded, end of Movimientos): `lib/tax.ts` rebuilds FIFO lots
+  per ticker (opening lot = shares before the first logged trade at the de-averaged
+  avg price × oldest snapshot FX, flagged "estimado"), fees in cost/proceeds, flags
+  the 2-month rule on non-crypto losses, adds dividends and an orientative tax with
+  `SAVINGS_BRACKETS` (IRPF 2025 savings scale). Update the brackets when they change.
 
 ## Project structure
 ```

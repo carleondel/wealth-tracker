@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { Check, Download, Trash2, Undo2 } from "lucide-react";
+import { useMemo, useState } from "react";
+import { Check, ChevronDown, Download, Trash2, Undo2 } from "lucide-react";
 import { Card, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -9,6 +9,7 @@ import { ManualOpForm } from "@/components/manual-op-form";
 import { describeOp, type JournalOp } from "@/lib/journal-ops";
 import { fmtDate, fmtEur, fmtNumber, fmtUsd } from "@/lib/format";
 import { downloadCsv, toCsv } from "@/lib/csv";
+import { getTaxReport, type TaxYear } from "@/lib/tax";
 import { planUndoContribution, planUndoIncome, planUndoTrade, type UndoPlan } from "@/lib/journal-undo";
 import type { Contribution, Income, ManualAsset, Position, Snapshot, Trade } from "@/lib/types";
 
@@ -39,6 +40,10 @@ export function JournalTab({
   const [undoing, setUndoing] = useState(false);
   const [undoErr, setUndoErr] = useState<string | null>(null);
   const ctx = { positions, manualAssets, contributions, trades, income, snapshots };
+  const taxYears = useMemo(
+    () => getTaxReport(trades, positions, income, snapshots, usdEur),
+    [trades, positions, income, snapshots, usdEur],
+  );
 
   function askUndo(plan: UndoPlan) {
     setUndoErr(null);
@@ -236,6 +241,8 @@ export function JournalTab({
       <TradesCard trades={trades} onUndo={(t) => askUndo(planUndoTrade(t, ctx))} />
 
       <IncomeCard income={income} onUndo={(i) => askUndo(planUndoIncome(i, ctx))} />
+
+      <TaxCard years={taxYears} />
 
       <Card>
         <div className="flex items-center justify-between gap-2">
@@ -440,6 +447,119 @@ function IncomeCard({ income, onUndo }: { income: Income[]; onUndo: (i: Income) 
   );
 }
 
+function TaxCard({ years }: { years: TaxYear[] }) {
+  const [picked, setPicked] = useState<number | null>(null);
+  const y = years.find((x) => x.year === picked) ?? years[0];
+  const row = (label: string, v: number, cls = "") => (
+    <div className="flex items-baseline justify-between gap-3">
+      <span className="text-[var(--muted)]">{label}</span>
+      <span className={`tabular-nums ${cls}`}>{fmtEur(v, 2)}</span>
+    </div>
+  );
+  return (
+    <details className="group rounded-xl border border-[var(--border)] bg-[var(--surface)]">
+      <summary className="flex items-center justify-between gap-2 cursor-pointer list-none p-4 sm:p-5 [&::-webkit-details-marker]:hidden">
+        <CardTitle>Resumen fiscal (FIFO)</CardTitle>
+        <span className="flex items-center gap-2">
+          {y ? (
+            <Badge variant={y.netGainEur >= 0 ? "accent" : "danger"} className="whitespace-nowrap">
+              {y.year}: {fmtEur(y.netGainEur)}
+            </Badge>
+          ) : null}
+          <ChevronDown size={14} className="text-[var(--muted)] transition-transform group-open:rotate-180" />
+        </span>
+      </summary>
+      <div className="px-4 pb-4 sm:px-5 sm:pb-5 text-sm">
+        {!y ? (
+          <p className="text-xs text-[var(--muted)]">
+            Sin ventas ni dividendos registrados todavía.
+          </p>
+        ) : (
+          <>
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex gap-1 overflow-x-auto no-scrollbar">
+                {years.map((x) => (
+                  <button
+                    key={x.year}
+                    onClick={() => setPicked(x.year)}
+                    className={`shrink-0 px-2 py-1 text-[10px] uppercase tracking-wider rounded ${
+                      x.year === y.year
+                        ? "bg-[var(--surface-2)] text-[var(--foreground)]"
+                        : "text-[var(--muted)] hover:text-[var(--foreground)]"
+                    }`}
+                  >
+                    {x.year}
+                  </button>
+                ))}
+              </div>
+              <ExportButton disabled={y.sales.length === 0} onClick={() => exportTax(y)} />
+            </div>
+
+            <div className="mt-3 space-y-1.5 text-xs">
+              {row("Ganancias", y.gainsEur, "text-[var(--accent)]")}
+              {row("Pérdidas", y.lossesEur, "text-[var(--danger)]")}
+              {row("Ganancia neta (transmisiones)", y.netGainEur, "font-semibold")}
+              {row("Dividendos brutos", y.dividendsGrossEur)}
+              {row("Retenciones ya pagadas", y.withholdingEur)}
+              <div className="pt-1.5 border-t border-[var(--border)]">
+                {row("Cuota orientativa base del ahorro", y.estimatedTaxEur, "font-semibold")}
+                {row("Pendiente tras retenciones", Math.max(0, y.estimatedTaxEur - y.withholdingEur))}
+              </div>
+            </div>
+
+            {y.sales.length > 0 ? (
+              <div className="mt-4 divide-y divide-[var(--border)]">
+                {y.sales.map((s) => (
+                  <div key={s.tradeId} className="py-2 flex items-start justify-between gap-3">
+                    <div className="min-w-0 text-xs">
+                      <div className="text-sm">
+                        <span className="font-semibold">{s.ticker}</span>{" "}
+                        <span className="text-[var(--muted)]">
+                          {fmtNumber(s.shares, 6)} · {fmtDate(s.date)}
+                        </span>
+                      </div>
+                      <div className="text-[var(--muted)] tabular-nums break-words">
+                        venta {fmtEur(s.proceedsEur, 2)} − coste {fmtEur(s.costEur, 2)}
+                        {s.estimated ? " · estimado" : ""}
+                      </div>
+                      {s.washSale ? (
+                        <div className="text-[var(--warning)]">
+                          Pérdida con recompra en ±2 meses: puede no ser computable aún.
+                        </div>
+                      ) : null}
+                      {s.uncovered > 0 ? (
+                        <div className="text-[var(--warning)]">
+                          {fmtNumber(s.uncovered, 6)} sin coste conocido (vendes más de lo registrado).
+                        </div>
+                      ) : null}
+                    </div>
+                    <span
+                      className={`shrink-0 tabular-nums ${
+                        s.gainEur >= 0 ? "text-[var(--accent)]" : "text-[var(--danger)]"
+                      }`}
+                    >
+                      {s.gainEur >= 0 ? "+" : ""}
+                      {fmtEur(s.gainEur, 2)}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            ) : null}
+
+            <p className="mt-3 text-[11px] text-[var(--muted)]">
+              Orientativo, no es asesoramiento fiscal. FIFO por ticker con comisiones incluidas.
+              Lo que tenías antes de la primera operación registrada se valora con tu precio medio
+              y el tipo de cambio más antiguo (&quot;estimado&quot;). La cuota usa la escala del
+              ahorro 2025 sin compensar pérdidas de otros años ni límites entre rentas. Compáralo
+              con el informe fiscal de tu broker.
+            </p>
+          </>
+        )}
+      </div>
+    </details>
+  );
+}
+
 function ExportButton({ onClick, disabled }: { onClick: () => void; disabled?: boolean }) {
   return (
     <button
@@ -497,6 +617,22 @@ function exportIncome(income: Income[]) {
       { header: "net_eur", value: (i) => Number(i.gross_eur) - Number(i.withholding_eur ?? 0) },
       { header: "account", value: (i) => i.account },
       { header: "note", value: (i) => i.note },
+    ]),
+  );
+}
+
+function exportTax(y: TaxYear) {
+  downloadCsv(
+    `fiscal-${y.year}-${stamp()}.csv`,
+    toCsv(y.sales, [
+      { header: "date", value: (s) => s.date },
+      { header: "ticker", value: (s) => s.ticker },
+      { header: "shares", value: (s) => s.shares },
+      { header: "proceeds_eur", value: (s) => Number(s.proceedsEur.toFixed(2)) },
+      { header: "cost_eur", value: (s) => Number(s.costEur.toFixed(2)) },
+      { header: "gain_eur", value: (s) => Number(s.gainEur.toFixed(2)) },
+      { header: "estimated", value: (s) => (s.estimated ? "yes" : "no") },
+      { header: "two_month_rule", value: (s) => (s.washSale ? "yes" : "no") },
     ]),
   );
 }
