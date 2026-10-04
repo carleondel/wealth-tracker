@@ -1,4 +1,4 @@
-import { CATEGORY_TARGETS, POLICY } from "./policy";
+import { CATEGORY_TARGETS, POLICY, SPECULATIVE_ROLES } from "./policy";
 import type {
   Breakdown,
   Category,
@@ -130,6 +130,98 @@ export function getTargetProgress(
   const remainingUsd = Math.max(0, targetPriceUsd - price);
   const band: "below" | "exit" = price >= targetPriceUsd ? "exit" : "below";
   return { pct, remainingUsd, band };
+}
+
+export type Bucket = "long" | "spec";
+
+export interface BucketStats {
+  valueEur: number;
+  /** Share of invested capital (cash excluded), 0-100. */
+  weightPct: number;
+  /** Unrealized % vs average cost over the positions that have one; null if none. */
+  pnlPct: number | null;
+  positions: number;
+  /** Positions in the bucket without an average cost (left out of pnlPct). */
+  withoutCost: number;
+}
+
+export interface StrategySplit {
+  long: BucketStats;
+  spec: BucketStats;
+  investedEur: number;
+  /** Cash left out of the split: manual assets + `caja` / Liquidez positions. */
+  cashEur: number;
+  /** Speculative position whose price is closest to its target (still below it). */
+  nearestTarget: { ticker: string; toTargetPct: number } | null;
+  /** Speculative positions already at or above their target. */
+  targetsReached: string[];
+}
+
+export function getBucket(position: Position): Bucket | "cash" {
+  if (position.role === "caja" || position.category === "Liquidez") return "cash";
+  return SPECULATIVE_ROLES.has(position.role) ? "spec" : "long";
+}
+
+/**
+ * Long-term vs speculative split of the invested money. Buckets come from the
+ * position role (`SPECULATIVE_ROLES`); cash is reported apart so a big cash
+ * pile doesn't make the speculative share look small.
+ */
+export function getStrategySplit(
+  positions: Position[],
+  manualAssets: ManualAsset[],
+  prices: PriceMap,
+  usdEur: number,
+): StrategySplit {
+  const acc = {
+    long: { valueEur: 0, costUsd: 0, valueWithCostUsd: 0, positions: 0, withoutCost: 0 },
+    spec: { valueEur: 0, costUsd: 0, valueWithCostUsd: 0, positions: 0, withoutCost: 0 },
+  };
+  let cashEur = manualAssets.reduce((s, a) => s + a.value_eur, 0);
+  let nearestTarget: StrategySplit["nearestTarget"] = null;
+  const targetsReached: string[] = [];
+
+  for (const p of positions) {
+    const valueEur = getPositionValueEur(p, prices, usdEur);
+    const bucket = getBucket(p);
+    if (bucket === "cash") {
+      cashEur += valueEur;
+      continue;
+    }
+    const b = acc[bucket];
+    b.valueEur += valueEur;
+    b.positions++;
+    const price = prices[p.ticker]?.price;
+    if (p.avg_price_usd != null && p.avg_price_usd > 0 && price != null) {
+      b.costUsd += p.avg_price_usd * p.shares;
+      b.valueWithCostUsd += price * p.shares;
+    } else {
+      b.withoutCost++;
+    }
+    if (bucket === "spec" && p.target_price_usd != null && price) {
+      const toTargetPct = (p.target_price_usd / price - 1) * 100;
+      if (toTargetPct <= 0) targetsReached.push(p.ticker);
+      else if (!nearestTarget || toTargetPct < nearestTarget.toTargetPct)
+        nearestTarget = { ticker: p.ticker, toTargetPct };
+    }
+  }
+
+  const investedEur = acc.long.valueEur + acc.spec.valueEur;
+  const stats = (b: (typeof acc)["long"]): BucketStats => ({
+    valueEur: b.valueEur,
+    weightPct: investedEur > 0 ? (b.valueEur / investedEur) * 100 : 0,
+    pnlPct: b.costUsd > 0 ? (b.valueWithCostUsd / b.costUsd - 1) * 100 : null,
+    positions: b.positions,
+    withoutCost: b.withoutCost,
+  });
+  return {
+    long: stats(acc.long),
+    spec: stats(acc.spec),
+    investedEur,
+    cashEur,
+    nearestTarget,
+    targetsReached,
+  };
 }
 
 const STABLES = new Set(["USDC-USD", "USDT-USD", "DAI-USD", "USDC", "USDT"]);

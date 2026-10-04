@@ -13,7 +13,9 @@ import {
   getCategoryPercents,
   getPnL,
   getPositionValueEur,
+  getStrategySplit,
   getTotalEur,
+  type BucketStats,
 } from "@/lib/calculations";
 import type {
   Category,
@@ -32,6 +34,8 @@ interface Props {
   totalEur: number;
   categoryTargets: CategoryTargets;
   onSaveTargets: (targets: CategoryTargets) => Promise<void>;
+  speculationCapPct: number;
+  onSaveSpeculationCap: (pct: number) => Promise<void>;
   onAddPosition: () => void;
   onEditPosition: (p: Position) => void;
   onAddAsset: () => void;
@@ -49,6 +53,8 @@ export function PortfolioTab({
   totalEur,
   categoryTargets,
   onSaveTargets,
+  speculationCapPct,
+  onSaveSpeculationCap,
   onAddPosition,
   onEditPosition,
   onAddAsset,
@@ -78,13 +84,13 @@ export function PortfolioTab({
 
   return (
     <div className="space-y-4 sm:space-y-6">
-      <AllocationCard
+      <StrategyCard
         positions={positions}
         manualAssets={manualAssets}
         prices={prices}
         usdEur={usdEur}
-        targets={categoryTargets}
-        onSave={onSaveTargets}
+        capPct={speculationCapPct}
+        onSaveCap={onSaveSpeculationCap}
       />
 
       <section>
@@ -165,6 +171,15 @@ export function PortfolioTab({
           </div>
         )}
       </section>
+
+      <AllocationCard
+        positions={positions}
+        manualAssets={manualAssets}
+        prices={prices}
+        usdEur={usdEur}
+        targets={categoryTargets}
+        onSave={onSaveTargets}
+      />
 
       <Simulator
         positions={positions}
@@ -366,6 +381,167 @@ function AssetRow({
   );
 }
 
+function StrategyCard({
+  positions,
+  manualAssets,
+  prices,
+  usdEur,
+  capPct,
+  onSaveCap,
+}: {
+  positions: Position[];
+  manualAssets: ManualAsset[];
+  prices: PriceMap;
+  usdEur: number;
+  capPct: number;
+  onSaveCap: (pct: number) => Promise<void>;
+}) {
+  const split = getStrategySplit(positions, manualAssets, prices, usdEur);
+  const [draft, setDraft] = useState(String(capPct));
+  const [syncedCap, setSyncedCap] = useState(capPct);
+  if (syncedCap !== capPct) {
+    setSyncedCap(capPct);
+    setDraft(String(capPct));
+  }
+  const parsedCap = Math.min(100, Math.max(0, Number(draft) || 0));
+  const dirty = draft.trim() !== "" && parsedCap !== capPct;
+  const [saving, setSaving] = useState(false);
+  async function save() {
+    setSaving(true);
+    try {
+      await onSaveCap(parsedCap);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  const { long, spec, investedEur } = split;
+  const capEur = (parsedCap / 100) * investedEur;
+  const overEur = spec.valueEur - capEur;
+  const over = spec.weightPct > parsedCap + 0.05;
+
+  return (
+    <Card>
+      <div className="flex items-center justify-between gap-2">
+        <CardTitle>Largo plazo vs especulación</CardTitle>
+        {dirty ? (
+          <Button onClick={save} disabled={saving} className="py-1">
+            <Save size={12} /> {saving ? "…" : "Guardar"}
+          </Button>
+        ) : null}
+      </div>
+
+      {investedEur <= 0 ? (
+        <p className="mt-3 text-xs text-[var(--muted)]">
+          Sin posiciones invertidas todavía.
+        </p>
+      ) : (
+        <>
+          <div className="mt-4 h-2.5 rounded-full overflow-hidden flex bg-[var(--surface-2)]">
+            <div className="h-full bg-[#4A9EFF]" style={{ width: `${long.weightPct}%` }} />
+            <div className="h-full bg-[#FF6B35]" style={{ width: `${spec.weightPct}%` }} />
+          </div>
+          <div className="relative h-0">
+            <div
+              className="absolute -top-3.5 h-4 w-px bg-[var(--foreground)]/70"
+              style={{ left: `${100 - parsedCap}%` }}
+              title={`Límite de especulación: ${parsedCap}%`}
+            />
+          </div>
+
+          <div className="mt-3 grid grid-cols-2 gap-3">
+            <BucketCell label="Largo plazo" color="#4A9EFF" stats={long} hint="Núcleo, cobertura, complemento" />
+            <BucketCell label="Especulación" color="#FF6B35" stats={spec} hint="Rol táctica" />
+          </div>
+
+          <div className="mt-4 pt-3 border-t border-[var(--border)] space-y-2 text-xs">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <label className="flex items-center gap-1.5 text-[var(--muted)]">
+                Límite especulación
+                <input
+                  type="number"
+                  inputMode="decimal"
+                  min="0"
+                  max="100"
+                  step="any"
+                  value={draft}
+                  onChange={(e) => setDraft(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && dirty) void save();
+                  }}
+                  className="w-14 bg-[var(--surface-2)] border border-[var(--border)] rounded px-1 py-0.5 text-right tabular-nums text-[var(--foreground)]"
+                />
+                %
+              </label>
+              <span className={`tabular-nums ${over ? "text-[var(--warning)]" : "text-[var(--muted)]"}`}>
+                {over
+                  ? `Te pasas ${fmtEur(overEur)}: recoge beneficios`
+                  : `Margen: ${fmtEur(-overEur)}`}
+              </span>
+            </div>
+            {split.targetsReached.length > 0 ? (
+              <div className="text-[var(--accent)]">
+                Objetivo alcanzado: {split.targetsReached.map(displayTicker).join(", ")} ✓
+              </div>
+            ) : null}
+            {split.nearestTarget ? (
+              <div className="text-[var(--muted)]">
+                Más cerca del objetivo:{" "}
+                <span className="text-[var(--foreground)]">{displayTicker(split.nearestTarget.ticker)}</span>
+                {" "}· falta {fmtPct(split.nearestTarget.toTargetPct, 0)}
+              </div>
+            ) : null}
+            <div className="text-[var(--muted)]">
+              Sin contar {fmtEur(split.cashEur)} de liquidez. Cambia el rol de una posición
+              para moverla de lado.
+            </div>
+          </div>
+        </>
+      )}
+    </Card>
+  );
+}
+
+function BucketCell({
+  label,
+  color,
+  stats,
+  hint,
+}: {
+  label: string;
+  color: string;
+  stats: BucketStats;
+  hint: string;
+}) {
+  return (
+    <div className="min-w-0" title={hint}>
+      <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-wider text-[var(--muted)]">
+        <span className="inline-block w-2 h-2 rounded-sm shrink-0" style={{ background: color }} />
+        <span className="truncate">{label}</span>
+      </div>
+      <div className="mt-1 flex items-baseline gap-2">
+        <span className="text-lg font-semibold tabular-nums">{fmtEur(stats.valueEur)}</span>
+        <span className="text-xs tabular-nums text-[var(--muted)]">{stats.weightPct.toFixed(0)}%</span>
+      </div>
+      <div className="text-[11px] tabular-nums">
+        {stats.pnlPct != null ? (
+          <>
+            <span className={changeClass(stats.pnlPct)}>{fmtPct(stats.pnlPct, 1)}</span>{" "}
+            <span className="text-[var(--muted)]">total</span>
+          </>
+        ) : (
+          <span className="text-[var(--muted)]">
+            {stats.positions === 0 ? "sin posiciones" : "sin coste medio"}
+          </span>
+        )}
+        {stats.pnlPct != null && stats.withoutCost > 0 ? (
+          <span className="text-[var(--muted)]"> · {stats.withoutCost} sin coste</span>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
 function AllocationCard({
   positions,
   manualAssets,
@@ -393,9 +569,9 @@ function AllocationCard({
     setDraft(toDraft(targets));
   }
 
-  const percents = getCategoryPercents(
-    getCategoryBreakdown(positions, manualAssets, prices, usdEur),
-  );
+  const breakdown = getCategoryBreakdown(positions, manualAssets, prices, usdEur);
+  const total = getTotalEur(breakdown);
+  const percents = getCategoryPercents(breakdown);
   const parsed = Object.fromEntries(
     CATEGORIES.map((c) => [c, Math.max(0, Number(draft[c]) || 0)]),
   ) as CategoryTargets;
@@ -412,94 +588,126 @@ function AllocationCard({
     }
   }
 
+  const maxDev = Math.max(...CATEGORIES.map((c) => Math.abs(percents[c] - parsed[c])));
+
   return (
-    <Card>
-      <div className="flex items-center justify-between gap-2">
-        <CardTitle>Asignación vs objetivo</CardTitle>
-        <div className="flex items-center gap-2">
-          {Math.abs(sum - 100) > 0.01 ? (
-            <Badge variant="warning">suma {sum.toFixed(0)}%</Badge>
-          ) : null}
-          {!isDefault ? (
-            <button
-              onClick={() => setDraft(toDraft(CATEGORY_TARGETS))}
-              className="p-1 text-[var(--muted)] hover:text-[var(--foreground)]"
-              title="Restablecer objetivos por defecto"
-              aria-label="Restablecer objetivos por defecto"
-            >
-              <RotateCcw size={12} />
-            </button>
-          ) : null}
-          {dirty ? (
-            <Button onClick={save} disabled={saving} className="py-1">
-              <Save size={12} /> {saving ? "…" : "Guardar"}
-            </Button>
-          ) : null}
+    <details className="group rounded-xl border border-[var(--border)] bg-[var(--surface)]">
+      <summary className="flex items-center justify-between gap-2 cursor-pointer list-none p-4 sm:p-5 [&::-webkit-details-marker]:hidden">
+        <CardTitle>Rebalanceo por categoría</CardTitle>
+        <span className="flex items-center gap-2">
+          <Badge
+            variant={deviationVariant(maxDev)}
+            title="Mayor desviación frente al objetivo"
+            className="whitespace-nowrap"
+          >
+            desv. máx {maxDev.toFixed(0)}%
+          </Badge>
+          <ChevronDown
+            size={14}
+            className="text-[var(--muted)] transition-transform group-open:rotate-180"
+          />
+        </span>
+      </summary>
+      <div className="px-4 pb-4 sm:px-5 sm:pb-5">
+        <div className="flex items-center justify-between gap-2">
+          <p className="text-xs text-[var(--muted)]">
+            Peso actual de cada categoría frente a tu objetivo, y cuánto comprar o vender para
+            volver a él.
+          </p>
+          <div className="flex items-center gap-2 shrink-0">
+            {Math.abs(sum - 100) > 0.01 ? (
+              <Badge variant="warning">suma {sum.toFixed(0)}%</Badge>
+            ) : null}
+            {!isDefault ? (
+              <button
+                onClick={() => setDraft(toDraft(CATEGORY_TARGETS))}
+                className="p-1 text-[var(--muted)] hover:text-[var(--foreground)]"
+                title="Restablecer objetivos por defecto"
+                aria-label="Restablecer objetivos por defecto"
+              >
+                <RotateCcw size={12} />
+              </button>
+            ) : null}
+            {dirty ? (
+              <Button onClick={save} disabled={saving} className="py-1">
+                <Save size={12} /> {saving ? "…" : "Guardar"}
+              </Button>
+            ) : null}
+          </div>
+        </div>
+        <div className="mt-4 space-y-4 sm:space-y-3">
+          {CATEGORIES.map((cat) => {
+            const current = percents[cat];
+            const target = parsed[cat];
+            const dev = current - target;
+            /** > 0: buy this much to reach the target; < 0: sell. */
+            const rebalanceEur = ((target - current) / 100) * total;
+            return (
+              <div
+                key={cat}
+                className="grid grid-cols-[auto_minmax(0,1fr)_auto] sm:flex items-center gap-x-2 sm:gap-x-3 gap-y-2 text-xs"
+              >
+                <span
+                  className="inline-block w-2.5 h-2.5 rounded-sm shrink-0"
+                  style={{ background: CATEGORY_COLORS[cat] }}
+                />
+                <span className="min-w-0 sm:w-28 sm:shrink-0 truncate">{cat}</span>
+                <span className="sm:order-1 sm:w-14 shrink-0 text-right tabular-nums font-semibold sm:font-normal">
+                  {current.toFixed(1)}%
+                </span>
+                <div className="col-span-3 sm:flex-1 relative h-2 bg-[var(--surface-2)] rounded-full overflow-hidden">
+                  <div
+                    className="absolute inset-y-0 left-0 rounded-full"
+                    style={{
+                      width: `${Math.min(100, current)}%`,
+                      background: CATEGORY_COLORS[cat],
+                    }}
+                  />
+                  <div
+                    className="absolute inset-y-0 w-px bg-[var(--foreground)]/60"
+                    style={{ left: `${Math.min(100, target)}%` }}
+                  />
+                </div>
+                <div className="col-span-3 sm:order-2 flex items-center justify-between sm:justify-end gap-3 shrink-0">
+                  <label className="flex items-center gap-1 text-[var(--muted)]">
+                    obj
+                    <input
+                      type="number"
+                      inputMode="decimal"
+                      min="0"
+                      max="100"
+                      step="any"
+                      value={draft[cat]}
+                      onChange={(e) =>
+                        setDraft((prev) => ({ ...prev, [cat]: e.target.value }))
+                      }
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" && dirty) void save();
+                      }}
+                      className="w-14 sm:w-12 bg-[var(--surface-2)] border border-[var(--border)] rounded px-1 py-0.5 text-right tabular-nums"
+                    />
+                    %
+                  </label>
+                  <span
+                    className="sm:w-36 flex items-center justify-end gap-2"
+                    title={`${current.toFixed(1)}% actual frente a ${target}% objetivo`}
+                  >
+                    <span className="tabular-nums text-[var(--muted)]">
+                      {Math.abs(dev) < 0.5
+                        ? "en objetivo"
+                        : `${rebalanceEur > 0 ? "comprar" : "vender"} ${fmtEur(Math.abs(rebalanceEur))}`}
+                    </span>
+                    <Badge variant={deviationVariant(dev)}>
+                      {fmtPct(dev, 0)}
+                    </Badge>
+                  </span>
+                </div>
+              </div>
+            );
+          })}
         </div>
       </div>
-      <div className="mt-4 space-y-4 sm:space-y-3">
-        {CATEGORIES.map((cat) => {
-          const current = percents[cat];
-          const target = parsed[cat];
-          const dev = current - target;
-          return (
-            <div
-              key={cat}
-              className="grid grid-cols-[auto_minmax(0,1fr)_auto] sm:flex items-center gap-x-2 sm:gap-x-3 gap-y-2 text-xs"
-            >
-              <span
-                className="inline-block w-2.5 h-2.5 rounded-sm shrink-0"
-                style={{ background: CATEGORY_COLORS[cat] }}
-              />
-              <span className="min-w-0 sm:w-28 sm:shrink-0 truncate">{cat}</span>
-              <span className="sm:order-1 sm:w-14 shrink-0 text-right tabular-nums font-semibold sm:font-normal">
-                {current.toFixed(1)}%
-              </span>
-              <div className="col-span-3 sm:flex-1 relative h-2 bg-[var(--surface-2)] rounded-full overflow-hidden">
-                <div
-                  className="absolute inset-y-0 left-0 rounded-full"
-                  style={{
-                    width: `${Math.min(100, current)}%`,
-                    background: CATEGORY_COLORS[cat],
-                  }}
-                />
-                <div
-                  className="absolute inset-y-0 w-px bg-[var(--foreground)]/60"
-                  style={{ left: `${Math.min(100, target)}%` }}
-                />
-              </div>
-              <div className="col-span-3 sm:order-2 flex items-center justify-between sm:justify-end gap-3 shrink-0">
-                <label className="flex items-center gap-1 text-[var(--muted)]">
-                  obj
-                  <input
-                    type="number"
-                    inputMode="decimal"
-                    min="0"
-                    max="100"
-                    step="any"
-                    value={draft[cat]}
-                    onChange={(e) =>
-                      setDraft((prev) => ({ ...prev, [cat]: e.target.value }))
-                    }
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter" && dirty) void save();
-                    }}
-                    className="w-14 sm:w-12 bg-[var(--surface-2)] border border-[var(--border)] rounded px-1 py-0.5 text-right tabular-nums"
-                  />
-                  %
-                </label>
-                <span className="sm:w-[4.5rem] flex justify-end">
-                  <Badge variant={deviationVariant(dev)}>
-                    {dev > 0 ? "+" : ""}
-                    {dev.toFixed(1)}pp
-                  </Badge>
-                </span>
-              </div>
-            </div>
-          );
-        })}
-      </div>
-    </Card>
+    </details>
   );
 }
 

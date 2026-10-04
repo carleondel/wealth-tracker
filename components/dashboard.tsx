@@ -54,7 +54,7 @@ import type {
   Trade,
   UserSettings,
 } from "@/lib/types";
-import { CATEGORY_TARGETS } from "@/lib/policy";
+import { CATEGORY_TARGETS, POLICY } from "@/lib/policy";
 
 type Tab = "overview" | "portfolio" | "benchmark" | "journal";
 
@@ -85,6 +85,7 @@ export function Dashboard({ userId, userEmail, demoMode = false }: Props) {
   const [contributions, setContributions] = useState<Contribution[]>([]);
   const [trades, setTrades] = useState<Trade[]>([]);
   const [categoryTargets, setCategoryTargets] = useState<CategoryTargets>(CATEGORY_TARGETS);
+  const [speculationCapPct, setSpeculationCapPct] = useState<number>(POLICY.speculationCapPct);
   const [prices, setPrices] = useState<PriceMap>({});
   const [usdEur, setUsdEur] = useState(DEFAULT_USD_EUR);
   const [btcUsd, setBtcUsd] = useState(DEFAULT_BTC);
@@ -188,10 +189,16 @@ export function Dashboard({ userId, userEmail, demoMode = false }: Props) {
       setManualAssets(m.data as ManualAsset[]);
       setSnapshots(s.data as Snapshot[]);
       setContributions(c.data as Contribution[]);
+      const settings = st.data as UserSettings | null;
       setCategoryTargets({
         ...CATEGORY_TARGETS,
-        ...((st.data as UserSettings | null)?.category_targets ?? {}),
+        ...(settings?.category_targets ?? {}),
       });
+      setSpeculationCapPct(
+        settings?.speculation_cap_pct != null
+          ? Number(settings.speculation_cap_pct)
+          : POLICY.speculationCapPct,
+      );
 
       const latest = (s.data as Snapshot[])[0];
       if (latest) {
@@ -556,6 +563,20 @@ export function Dashboard({ userId, userEmail, demoMode = false }: Props) {
       const { error } = await supabase.from("user_settings").upsert({
         owner_id: userId,
         category_targets: targets,
+        updated_at: new Date().toISOString(),
+      });
+      if (error) setErr(error.message);
+    },
+    [userId, demoMode],
+  );
+
+  const handleSaveSpeculationCap = useCallback(
+    async (pct: number) => {
+      setSpeculationCapPct(pct);
+      if (demoMode) return;
+      const { error } = await supabase.from("user_settings").upsert({
+        owner_id: userId,
+        speculation_cap_pct: pct,
         updated_at: new Date().toISOString(),
       });
       if (error) setErr(error.message);
@@ -928,6 +949,8 @@ export function Dashboard({ userId, userEmail, demoMode = false }: Props) {
                 totalEur={totalEur}
                 categoryTargets={categoryTargets}
                 onSaveTargets={handleSaveTargets}
+                speculationCapPct={speculationCapPct}
+                onSaveSpeculationCap={handleSaveSpeculationCap}
                 onAddPosition={() => setEditingPosition(null)}
                 onEditPosition={(p) => setEditingPosition(p)}
                 onAddAsset={() => setEditingAsset(null)}

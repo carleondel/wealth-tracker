@@ -39,7 +39,9 @@ Tables (all rows gated by `owner_id = auth.uid()`):
 - `manual_assets` — cash/savings accounts + `interest_rate_annual`
 - `snapshots` — point-in-time net worth (total_eur, breakdown, prices, fx)
 - `contributions` — recorded contributions (amount_eur, type, date)
-- `user_settings` — one row per user: `category_targets` jsonb (target % per category)
+- `user_settings` — one row per user: `category_targets` jsonb (target % per category),
+  `speculation_cap_pct` (max % of invested capital in the speculative bucket; null =
+  `POLICY.speculationCapPct`)
 - `trades` — one row per buy/sell applied from the Journal (signed shares, price_usd,
   amount_eur, funding, realized_usd for sells, date). Append-only log; positions stay
   the source of truth for current holdings.
@@ -67,7 +69,11 @@ Tables (all rows gated by `owner_id = auth.uid()`):
   These are currently global — future work may make them per-user.
 - `CATEGORY_TARGETS` in `policy.ts` are only the **defaults**; the effective
   targets come from `user_settings.category_targets` (loaded in `dashboard.tsx`,
-  edited in the "Asignación vs objetivo" card).
+  edited in the folded "Rebalanceo por categoría" card, which also shows the €
+  to buy/sell per category to get back on target).
+- Long-term vs speculation: `getStrategySplit` buckets positions by role
+  (`SPECULATIVE_ROLES` = `tactica`; cash = role `caja`, category Liquidez and
+  manual assets, reported apart). Shown first in Cartera with the editable cap.
 
 ## UI guidelines
 - Dark theme, background `#080C18`, monospace font (Geist Mono).
@@ -175,6 +181,7 @@ supabase/
     003_asset_interest.sql
     004_user_settings.sql
     005_trades.sql
+    006_speculation_cap.sql
 ```
 
 ## Secrets + repo hygiene
