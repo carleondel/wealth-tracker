@@ -95,6 +95,7 @@ export function Dashboard({ userId, userEmail, demoMode = false }: Props) {
     "FALLBACK",
   );
   const [tab, setTab] = useState<Tab>("overview");
+  const [navHidden, setNavHidden] = useHideOnScrollDown();
   const [modalOpen, setModalOpen] = useState(false);
   const [editingPosition, setEditingPosition] = useState<Position | null | undefined>(undefined);
   const [editingAsset, setEditingAsset] = useState<ManualAsset | null | undefined>(undefined);
@@ -950,12 +951,17 @@ export function Dashboard({ userId, userEmail, demoMode = false }: Props) {
         )}
       </main>
 
-      <nav className="sm:hidden fixed bottom-0 inset-x-0 z-40 grid grid-cols-4 border-t border-[var(--border)] bg-[var(--surface)]/90 backdrop-blur-sm pb-[env(safe-area-inset-bottom)]">
+      <nav
+        className={`sm:hidden fixed bottom-0 inset-x-0 z-40 grid grid-cols-4 border-t border-[var(--border)] bg-[var(--surface)]/90 backdrop-blur-sm pb-[env(safe-area-inset-bottom)] transition-transform duration-200 ease-out ${
+          navHidden ? "translate-y-full" : "translate-y-0"
+        }`}
+      >
         {TABS.map(({ id, label, icon: Icon }) => (
           <button
             key={id}
             onClick={() => {
               setTab(id);
+              setNavHidden(false);
               window.scrollTo({ top: 0 });
             }}
             aria-current={tab === id ? "page" : undefined}
@@ -995,4 +1001,35 @@ export function Dashboard({ userId, userEmail, demoMode = false }: Props) {
       />
     </>
   );
+}
+
+/**
+ * Mobile-app style bottom bar: hides while scrolling down, comes back on any
+ * scroll up or near the top. Small jitters (< 8px) are ignored so it doesn't
+ * flicker, and iOS overscroll bounce (negative / past-the-end Y) is clamped.
+ */
+function useHideOnScrollDown(): [boolean, (hidden: boolean) => void] {
+  const [hidden, setHidden] = useState(false);
+  useEffect(() => {
+    let lastY = window.scrollY;
+    let frame = 0;
+    const onScroll = () => {
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(() => {
+        const maxY = document.documentElement.scrollHeight - window.innerHeight;
+        const y = Math.min(Math.max(window.scrollY, 0), Math.max(maxY, 0));
+        const dy = y - lastY;
+        if (y < 64) setHidden(false);
+        else if (Math.abs(dy) < 8) return;
+        else setHidden(dy > 0);
+        lastY = y;
+      });
+    };
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => {
+      window.removeEventListener("scroll", onScroll);
+      cancelAnimationFrame(frame);
+    };
+  }, []);
+  return [hidden, setHidden];
 }
