@@ -180,6 +180,11 @@ export function PortfolioTab({
 const rowClass =
   "w-full flex items-center gap-3 sm:gap-4 px-4 py-3 text-left hover:bg-[var(--surface-2)]/50 active:bg-[var(--surface-2)]/50 transition-colors";
 
+/** "BTC-USD" → "BTC": the quote currency is noise on a narrow row. */
+function displayTicker(ticker: string) {
+  return ticker.replace(/-USD$/i, "");
+}
+
 function changeClass(v: number) {
   return v >= 0 ? "text-[var(--accent)]" : "text-[var(--danger)]";
 }
@@ -201,12 +206,16 @@ function PositionRow({
   const pnl = getPnL(position, prices);
   const role = ROLE_INFO[position.role];
   const color = CATEGORY_COLORS[position.category];
+  const target = position.target_price_usd;
+  /** How much the price still has to move to hit the target (0.25 = +25%). */
+  const toTarget =
+    target != null && entry?.price ? target / entry.price - 1 : null;
 
   return (
     <button onClick={onClick} className={rowClass}>
       <div className="flex-1 min-w-0 flex items-center gap-3">
         <span
-          className="shrink-0 w-[4.5rem] text-center truncate px-1.5 py-0.5 rounded text-[11px] font-semibold"
+          className="hidden sm:block shrink-0 w-[4.5rem] text-center truncate px-1.5 py-0.5 rounded text-[11px] font-semibold"
           style={{
             background: `color-mix(in srgb, ${color} 22%, transparent)`,
             color,
@@ -215,9 +224,44 @@ function PositionRow({
           {position.ticker}
         </span>
         <div className="min-w-0">
-          <div className="text-sm truncate">{position.name}</div>
+          <div className="text-sm truncate">
+            <span className="sm:hidden font-semibold mr-1.5" style={{ color }}>
+              {displayTicker(position.ticker)}
+            </span>
+            <span className="max-sm:text-xs max-sm:text-[var(--muted)]">{position.name}</span>
+          </div>
+          <div className="sm:hidden text-[11px] tabular-nums truncate">
+            {entry?.price != null ? (
+              <>
+                {fmtUsd(entry.price, entry.price >= 1000 ? 0 : 2)}
+                {entry.change != null ? (
+                  <span className={changeClass(entry.change)}>
+                    {" "}
+                    {fmtPct(entry.change, 1)} <span className="text-[var(--muted)]">hoy</span>
+                  </span>
+                ) : null}
+              </>
+            ) : (
+              <span className="text-[var(--muted)]">sin precio</span>
+            )}
+          </div>
+          {target != null ? (
+            <div
+              className={`sm:hidden text-[11px] tabular-nums truncate ${
+                toTarget != null && toTarget <= 0 ? "text-[var(--accent)]" : "text-[var(--muted)]"
+              }`}
+              title={role.rule}
+            >
+              obj {fmtUsd(target, target >= 100 ? 0 : 2)}
+              {toTarget == null
+                ? ""
+                : toTarget <= 0
+                  ? " · alcanzado ✓"
+                  : ` · falta ${fmtPct(toTarget * 100, 0)}`}
+            </div>
+          ) : null}
           <div
-            className="text-[10px] uppercase tracking-wider text-[var(--muted)] truncate"
+            className="hidden sm:block text-[10px] uppercase tracking-wider text-[var(--muted)] truncate"
             title={role.rule}
           >
             {role.label} · {position.platform}
@@ -251,13 +295,17 @@ function PositionRow({
 
       <div className="shrink-0 w-24 text-right">
         <div className="text-sm font-semibold tabular-nums">{fmtEur(valueEur)}</div>
-        <div className="sm:hidden text-[11px] tabular-nums">
-          {entry?.change != null ? (
-            <span className={changeClass(entry.change)}>{fmtPct(entry.change, 1)}</span>
+        <div
+          className={`sm:hidden text-[11px] tabular-nums ${pnl ? changeClass(pnl.pct) : "text-[var(--muted)]"}`}
+          title="Rentabilidad acumulada frente a tu precio medio"
+        >
+          {pnl ? (
+            <>
+              {fmtPct(pnl.pct * 100, 1)} <span className="text-[var(--muted)]">total</span>
+            </>
           ) : (
-            <span className="text-[var(--muted)]">sin precio</span>
+            "sin coste"
           )}
-          <span className="text-[var(--muted)]"> · {weightPct.toFixed(1)}%</span>
         </div>
       </div>
     </button>
@@ -277,7 +325,7 @@ function AssetRow({
   return (
     <button onClick={onClick} className={rowClass}>
       <div className="flex-1 min-w-0 flex items-center gap-3">
-        <span className="shrink-0 w-[4.5rem] text-center px-1.5 py-0.5 rounded text-[11px] text-[var(--muted)] border border-[var(--border)]">
+        <span className="hidden sm:block shrink-0 w-[4.5rem] text-center px-1.5 py-0.5 rounded text-[11px] text-[var(--muted)] border border-[var(--border)]">
           CUENTA
         </span>
         <div className="min-w-0">
