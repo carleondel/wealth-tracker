@@ -361,6 +361,7 @@ export interface TwrResult {
   /** Total TWR (%) over the range. */
   totalPct: number;
   fromIso: string;
+  /** In the currency the TWR was computed in. */
   contributionsTotal: number;
 }
 
@@ -379,7 +380,15 @@ export function getTimeWeightedReturn(
   contributions: Contribution[],
   range: PnLRange,
   now: Date = new Date(),
+  currency: "EUR" | "USD" = "EUR",
 ): TwrResult | null {
+  // In USD every value is converted with its own snapshot's rate, so the
+  // EUR/USD move becomes part of the return (what a dollar investor sees).
+  // A flow is converted at the rate of the snapshot that first includes it.
+  const fx = (s: Snapshot) => {
+    const rate = Number(s.usd_eur_rate);
+    return currency === "USD" && rate > 0 ? 1 / rate : 1;
+  };
   const snapshots = lastSnapshotPerDay(allSnapshots);
   if (snapshots.length === 0) return null;
   const baselineSnap = findBaselineSnapshot(snapshots, range, now);
@@ -401,14 +410,15 @@ export function getTimeWeightedReturn(
   for (let i = 1; i < inRange.length; i++) {
     const prev = inRange[i - 1];
     const cur = inRange[i];
-    const flow = sumContributions(
-      contributions,
-      new Date(prev.created_at).getTime(),
-      new Date(cur.created_at).getTime(),
-    );
+    const flow =
+      sumContributions(
+        contributions,
+        new Date(prev.created_at).getTime(),
+        new Date(cur.created_at).getTime(),
+      ) * fx(cur);
     contributionsTotal += flow;
-    const vStart = (Number(prev.total_eur) || 0) + flow;
-    const vEnd = Number(cur.total_eur) || 0;
+    const vStart = (Number(prev.total_eur) || 0) * fx(prev) + flow;
+    const vEnd = (Number(cur.total_eur) || 0) * fx(cur);
     if (vStart > 0) index *= vEnd / vStart;
     points.push({ createdAt: cur.created_at, pct: (index - 1) * 100 });
   }
