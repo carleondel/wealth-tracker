@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Check, Download, Trash2 } from "lucide-react";
+import { Check, Download, Trash2, Undo2 } from "lucide-react";
 import { Card, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -9,18 +9,55 @@ import { ManualOpForm } from "@/components/manual-op-form";
 import { describeOp, type JournalOp } from "@/lib/journal-ops";
 import { fmtDate, fmtEur, fmtNumber, fmtUsd } from "@/lib/format";
 import { downloadCsv, toCsv } from "@/lib/csv";
-import type { Contribution, ManualAsset, Position, Trade } from "@/lib/types";
+import { planUndoContribution, planUndoTrade, type UndoPlan } from "@/lib/journal-undo";
+import type { Contribution, ManualAsset, Position, Snapshot, Trade } from "@/lib/types";
 
 interface Props {
   positions: Position[];
   manualAssets: ManualAsset[];
   contributions: Contribution[];
   trades: Trade[];
+  snapshots: Snapshot[];
   usdEur: number;
   onApply: (ops: JournalOp[]) => Promise<{ applied: number; failed: string[] }>;
+  onUndo: (plan: UndoPlan) => Promise<void>;
 }
 
-export function JournalTab({ positions, manualAssets, contributions, trades, usdEur, onApply }: Props) {
+export function JournalTab({
+  positions,
+  manualAssets,
+  contributions,
+  trades,
+  snapshots,
+  usdEur,
+  onApply,
+  onUndo,
+}: Props) {
+  const [undo, setUndo] = useState<UndoPlan | null>(null);
+  const [undoing, setUndoing] = useState(false);
+  const [undoErr, setUndoErr] = useState<string | null>(null);
+  const ctx = { positions, manualAssets, contributions, trades, snapshots };
+
+  function askUndo(plan: UndoPlan) {
+    setUndoErr(null);
+    setUndo(plan);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  async function confirmUndo() {
+    if (!undo) return;
+    setUndoing(true);
+    setUndoErr(null);
+    try {
+      await onUndo(undo);
+      setUndo(null);
+    } catch (e) {
+      setUndoErr(e instanceof Error ? e.message : String(e));
+    } finally {
+      setUndoing(false);
+    }
+  }
+
   const [ops, setOps] = useState<JournalOp[]>([]);
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [applying, setApplying] = useState(false);
@@ -76,6 +113,40 @@ export function JournalTab({ positions, manualAssets, contributions, trades, usd
 
   return (
     <div className="space-y-4 sm:space-y-5">
+      {undo ? (
+        <Card className="border-[var(--warning)]/60">
+          <CardTitle>{undo.title}</CardTitle>
+          <ul className="mt-3 space-y-1 text-sm list-disc pl-4">
+            {undo.lines.map((l, i) => (
+              <li key={i} className="break-words">{l}</li>
+            ))}
+          </ul>
+          {undo.warnings.length > 0 ? (
+            <ul className="mt-3 space-y-1 text-xs text-[var(--warning)]">
+              {undo.warnings.map((w, i) => (
+                <li key={i} className="break-words">{w}</li>
+              ))}
+            </ul>
+          ) : null}
+          {undo.effects.some((e) => e.kind === "reverse_contribution") ? (
+            <p className="mt-3 text-xs text-[var(--muted)]">
+              Ya hay snapshots con este dinero, así que en vez de borrar la aportación se anota
+              otra en sentido contrario: así tu rentabilidad no da un salto.
+            </p>
+          ) : null}
+          {undoErr ? <div className="mt-3 text-xs text-[var(--danger)]">{undoErr}</div> : null}
+          <div className="mt-4 flex justify-end gap-2">
+            <Button variant="ghost" onClick={() => setUndo(null)} disabled={undoing}>
+              Cancelar
+            </Button>
+            <Button variant="danger" onClick={confirmUndo} disabled={undoing}>
+              <Undo2 size={12} />
+              {undoing ? "Deshaciendo…" : "Deshacer"}
+            </Button>
+          </div>
+        </Card>
+      ) : null}
+
       <ManualOpForm
         positions={positions}
         manualAssets={manualAssets}
@@ -160,7 +231,7 @@ export function JournalTab({ positions, manualAssets, contributions, trades, usd
         </Card>
       ) : null}
 
-      <TradesCard trades={trades} />
+      <TradesCard trades={trades} onUndo={(t) => askUndo(planUndoTrade(t, ctx))} />
 
       <Card>
         <div className="flex items-center justify-between gap-2">
@@ -201,6 +272,7 @@ export function JournalTab({ positions, manualAssets, contributions, trades, usd
                   {c.amount_eur >= 0 ? "+" : ""}
                   {fmtEur(c.amount_eur)}
                 </span>
+                <UndoButton onClick={() => askUndo(planUndoContribution(c, ctx))} />
               </div>
             ))
           )}
@@ -225,7 +297,20 @@ function opTypeLabel(type: JournalOp["type"]): string {
   }
 }
 
-function TradesCard({ trades }: { trades: Trade[] }) {
+function UndoButton({ onClick }: { onClick: () => void }) {
+  return (
+    <button
+      onClick={onClick}
+      className="shrink-0 -my-1 -mr-2 p-2 text-[var(--muted)] hover:text-[var(--danger)]"
+      title="Deshacer"
+      aria-label="Deshacer"
+    >
+      <Trash2 size={13} />
+    </button>
+  );
+}
+
+function TradesCard({ trades, onUndo }: { trades: Trade[]; onUndo: (t: Trade) => void }) {
   return (
     <Card>
       <div className="flex items-center justify-between gap-2">
@@ -284,6 +369,7 @@ function TradesCard({ trades }: { trades: Trade[] }) {
                     {fmtEur(t.amount_eur)}
                   </span>
                 ) : null}
+                <UndoButton onClick={() => onUndo(t)} />
               </div>
             );
           })

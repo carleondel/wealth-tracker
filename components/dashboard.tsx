@@ -24,6 +24,8 @@ import { BenchmarkTab } from "@/components/tabs/benchmark";
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/lib/supabase";
 import { usePersistentState } from "@/lib/use-persistent-state";
+import { localDateIso } from "@/lib/format";
+import type { UndoPlan } from "@/lib/journal-undo";
 import {
   getAccruedInterest,
   getCategoryBreakdown,
@@ -636,7 +638,7 @@ export function Dashboard({ userId, userEmail, demoMode = false }: Props) {
               amount_eur: op.amount_eur ?? null,
               funding: op.funding ?? null,
               realized_usd: realized,
-              date: op.date ?? nowIso.slice(0, 10),
+              date: op.date ?? localDateIso(),
               note: null,
             };
             if (demoMode) {
@@ -747,7 +749,7 @@ export function Dashboard({ userId, userEmail, demoMode = false }: Props) {
             }
             applied++;
           } else if (op.type === "contribute") {
-            const date = op.date ?? nowIso.slice(0, 10);
+            const date = op.date ?? localDateIso();
             if (demoMode) {
               const local: Contribution = {
                 id: localId(),
@@ -785,6 +787,69 @@ export function Dashboard({ userId, userEmail, demoMode = false }: Props) {
       setPositions(Array.from(posMap.values()));
       setManualAssets(Array.from(assetMap.values()));
       return { applied, failed };
+    },
+    [positions, manualAssets, userId, demoMode],
+  );
+
+  /** Runs an undo plan (lib/journal-undo.ts). Stops at the first failure. */
+  const applyUndo = useCallback(
+    async (plan: UndoPlan) => {
+      const nowIso = new Date().toISOString();
+      const today = localDateIso();
+      for (const fx of plan.effects) {
+        if (fx.kind === "position") {
+          const p = positions.find((x) => x.id === fx.id);
+          if (!p) continue;
+          const updates: Partial<Position> = { shares: Math.max(0, Number(p.shares) + fx.deltaShares) };
+          if (fx.avgPriceUsd != null) updates.avg_price_usd = fx.avgPriceUsd;
+          if (!demoMode) {
+            const { error } = await supabase.from("positions").update(updates).eq("id", p.id);
+            if (error) throw error;
+          }
+          setPositions((prev) => prev.map((x) => (x.id === p.id ? { ...x, ...updates } : x)));
+        } else if (fx.kind === "asset") {
+          const a = manualAssets.find((x) => x.id === fx.id);
+          if (!a) continue;
+          // updated_at is left alone: it's the start of interest accrual, and an
+          // undo restores a balance rather than setting a new one.
+          const updates = { value_eur: Number(a.value_eur) + fx.deltaEur };
+          if (!demoMode) {
+            const { error } = await supabase.from("manual_assets").update(updates).eq("id", a.id);
+            if (error) throw error;
+          }
+          setManualAssets((prev) => prev.map((x) => (x.id === a.id ? { ...x, ...updates } : x)));
+        } else if (fx.kind === "delete_trade") {
+          if (!demoMode) {
+            const { error } = await supabase.from("trades").delete().eq("id", fx.id);
+            if (error) throw error;
+          }
+          setTrades((prev) => prev.filter((x) => x.id !== fx.id));
+        } else if (fx.kind === "delete_contribution") {
+          if (!demoMode) {
+            const { error } = await supabase.from("contributions").delete().eq("id", fx.id);
+            if (error) throw error;
+          }
+          setContributions((prev) => prev.filter((x) => x.id !== fx.id));
+        } else {
+          const row = {
+            amount_eur: -Number(fx.of.amount_eur),
+            type: fx.of.type,
+            note: `anula ${fx.of.date.slice(0, 10)}${fx.of.note ? ` · ${fx.of.note}` : ""}`,
+            date: today,
+          };
+          if (demoMode) {
+            setContributions((prev) => [{ id: localId(), created_at: nowIso, ...row }, ...prev]);
+          } else {
+            const { data, error } = await supabase
+              .from("contributions")
+              .insert({ owner_id: userId, ...row })
+              .select()
+              .single();
+            if (error) throw error;
+            setContributions((prev) => [data as Contribution, ...prev]);
+          }
+        }
+      }
     },
     [positions, manualAssets, userId, demoMode],
   );
@@ -969,8 +1034,10 @@ export function Dashboard({ userId, userEmail, demoMode = false }: Props) {
                 manualAssets={manualAssets}
                 contributions={contributions}
                 trades={trades}
+                snapshots={snapshots}
                 usdEur={usdEur}
                 onApply={applyJournalOps}
+                onUndo={applyUndo}
               />
             )}
           </>

@@ -5,6 +5,7 @@ import { Plus } from "lucide-react";
 import { Card, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import type { JournalOp } from "@/lib/journal-ops";
+import { localDateIso } from "@/lib/format";
 import type { ManualAsset, Position } from "@/lib/types";
 
 type Kind = "buy" | "sell" | "deposit" | "withdraw";
@@ -320,10 +321,7 @@ export function ManualOpForm({ positions, manualAssets, usdEur, onAdd }: Props) 
   );
 }
 
-function todayIso(): string {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-}
+const todayIso = () => localDateIso();
 
 function kindLabel(k: Kind): string {
   switch (k) {
