@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useState } from "react";
 import { X } from "lucide-react";
 import { parsePricesJson } from "@/lib/prices";
 import type { Position, PriceMap, PricesResult } from "@/lib/types";
@@ -14,36 +14,26 @@ interface Props {
   onSave: (result: PricesResult) => Promise<void> | void;
 }
 
-export function UpdatePricesModal({
-  open,
-  positions,
-  current,
-  onCancel,
-  onSave,
-}: Props) {
-  const tickers = useMemo(() => positions.map((p) => p.ticker), [positions]);
+export function UpdatePricesModal(props: Props) {
+  // Mounted only while open so the fields are seeded from current prices each time.
+  if (!props.open) return null;
+  return <UpdatePricesForm {...props} />;
+}
+
+function UpdatePricesForm({ positions, current, onCancel, onSave }: Props) {
   const [usdEur, setUsdEur] = useState(current.usdEur);
   const [btcUsd, setBtcUsd] = useState(current.btcUsd);
-  const [rows, setRows] = useState<Record<string, string>>({});
+  const [rows, setRows] = useState<Record<string, string>>(() =>
+    Object.fromEntries(
+      positions.map((p) => {
+        const v = current.prices[p.ticker]?.price;
+        return [p.ticker, v != null ? String(v) : ""];
+      }),
+    ),
+  );
   const [jsonInput, setJsonInput] = useState("");
   const [jsonError, setJsonError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
-
-  useEffect(() => {
-    if (!open) return;
-    setUsdEur(current.usdEur);
-    setBtcUsd(current.btcUsd);
-    const seeded: Record<string, string> = {};
-    for (const t of tickers) {
-      const v = current.prices[t]?.price;
-      seeded[t] = v != null ? String(v) : "";
-    }
-    setRows(seeded);
-    setJsonInput("");
-    setJsonError(null);
-  }, [open, current, tickers]);
-
-  if (!open) return null;
 
   function updateRow(ticker: string, value: string) {
     setRows((prev) => ({ ...prev, [ticker]: value }));
