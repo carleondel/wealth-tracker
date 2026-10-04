@@ -103,6 +103,21 @@ export interface Trade {
   funding: string | null;
   /** Sells only: realized P&L in USD vs the average price before the sale. */
   realized_usd: number | null;
+  /** Commission in EUR (already included in the cash counterpart). */
+  fee_eur?: number | null;
+  date: string;
+  note: string | null;
+  created_at: string;
+}
+
+/** Dividend (or similar) cashed into a liquidity account. */
+export interface Income {
+  id: string;
+  ticker: string;
+  gross_eur: number;
+  withholding_eur: number;
+  /** Manual asset name that received the net amount. */
+  account: string | null;
   date: string;
   note: string | null;
   created_at: string;

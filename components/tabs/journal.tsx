@@ -9,14 +9,15 @@ import { ManualOpForm } from "@/components/manual-op-form";
 import { describeOp, type JournalOp } from "@/lib/journal-ops";
 import { fmtDate, fmtEur, fmtNumber, fmtUsd } from "@/lib/format";
 import { downloadCsv, toCsv } from "@/lib/csv";
-import { planUndoContribution, planUndoTrade, type UndoPlan } from "@/lib/journal-undo";
-import type { Contribution, ManualAsset, Position, Snapshot, Trade } from "@/lib/types";
+import { planUndoContribution, planUndoIncome, planUndoTrade, type UndoPlan } from "@/lib/journal-undo";
+import type { Contribution, Income, ManualAsset, Position, Snapshot, Trade } from "@/lib/types";
 
 interface Props {
   positions: Position[];
   manualAssets: ManualAsset[];
   contributions: Contribution[];
   trades: Trade[];
+  income: Income[];
   snapshots: Snapshot[];
   usdEur: number;
   onApply: (ops: JournalOp[]) => Promise<{ applied: number; failed: string[] }>;
@@ -28,6 +29,7 @@ export function JournalTab({
   manualAssets,
   contributions,
   trades,
+  income,
   snapshots,
   usdEur,
   onApply,
@@ -36,7 +38,7 @@ export function JournalTab({
   const [undo, setUndo] = useState<UndoPlan | null>(null);
   const [undoing, setUndoing] = useState(false);
   const [undoErr, setUndoErr] = useState<string | null>(null);
-  const ctx = { positions, manualAssets, contributions, trades, snapshots };
+  const ctx = { positions, manualAssets, contributions, trades, income, snapshots };
 
   function askUndo(plan: UndoPlan) {
     setUndoErr(null);
@@ -233,6 +235,8 @@ export function JournalTab({
 
       <TradesCard trades={trades} onUndo={(t) => askUndo(planUndoTrade(t, ctx))} />
 
+      <IncomeCard income={income} onUndo={(i) => askUndo(planUndoIncome(i, ctx))} />
+
       <Card>
         <div className="flex items-center justify-between gap-2">
           <CardTitle className="min-w-0">Aportaciones</CardTitle>
@@ -294,6 +298,8 @@ function opTypeLabel(type: JournalOp["type"]): string {
       return "fijar saldo";
     case "contribute":
       return "aportación";
+    case "income":
+      return "dividendo";
   }
 }
 
@@ -352,6 +358,7 @@ function TradesCard({ trades, onUndo }: { trades: Trade[]; onUndo: (t: Trade) =>
                       : t.funding
                         ? `${buy ? "desde" : "a"} ${t.funding}`
                         : "sin contrapartida"}
+                    {t.fee_eur ? <> · comisión {fmtEur(Number(t.fee_eur), 2)}</> : null}
                     {t.realized_usd != null ? (
                       <>
                         {" "}·{" "}
@@ -370,6 +377,60 @@ function TradesCard({ trades, onUndo }: { trades: Trade[]; onUndo: (t: Trade) =>
                   </span>
                 ) : null}
                 <UndoButton onClick={() => onUndo(t)} />
+              </div>
+            );
+          })
+        )}
+      </div>
+    </Card>
+  );
+}
+
+function IncomeCard({ income, onUndo }: { income: Income[]; onUndo: (i: Income) => void }) {
+  const year = new Date().getFullYear();
+  const thisYear = income.filter((i) => i.date.startsWith(String(year)));
+  const netYear = thisYear.reduce((s, i) => s + Number(i.gross_eur) - Number(i.withholding_eur ?? 0), 0);
+  return (
+    <Card>
+      <div className="flex items-center justify-between gap-2">
+        <CardTitle className="min-w-0">Dividendos</CardTitle>
+        <div className="flex items-center gap-2 shrink-0">
+          <Badge variant="muted">{income.length}</Badge>
+          <ExportButton disabled={income.length === 0} onClick={() => exportIncome(income)} />
+        </div>
+      </div>
+      <p className="mt-1 text-xs text-[var(--muted)]">
+        Cuentan como rendimiento.
+        {thisYear.length > 0 ? (
+          <>
+            {" "}En {year}: <span className="text-[var(--accent)] tabular-nums">{fmtEur(netYear, 2)}</span> netos.
+          </>
+        ) : null}
+      </p>
+      <div className="mt-3 divide-y divide-[var(--border)]">
+        {income.length === 0 ? (
+          <div className="py-3 text-xs text-[var(--muted)]">
+            Sin dividendos. Añádelos con &quot;Dividendo&quot; arriba.
+          </div>
+        ) : (
+          income.map((i) => {
+            const wh = Number(i.withholding_eur ?? 0);
+            return (
+              <div key={i.id} className="py-2.5 flex items-start justify-between gap-3 text-sm">
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="whitespace-nowrap">{fmtDate(i.date)}</span>
+                    <span className="font-semibold">{i.ticker}</span>
+                  </div>
+                  <div className="text-xs text-[var(--muted)] break-words">
+                    {i.account ? `a ${i.account}` : "sin cuenta"}
+                    {wh > 0 ? ` · bruto ${fmtEur(Number(i.gross_eur), 2)} − retención ${fmtEur(wh, 2)}` : ""}
+                  </div>
+                </div>
+                <span className="shrink-0 tabular-nums text-[var(--accent)]">
+                  +{fmtEur(Number(i.gross_eur) - wh, 2)}
+                </span>
+                <UndoButton onClick={() => onUndo(i)} />
               </div>
             );
           })
@@ -407,6 +468,7 @@ function exportTrades(trades: Trade[]) {
       { header: "amount_eur", value: (t) => t.amount_eur },
       { header: "funding", value: (t) => t.funding },
       { header: "realized_usd", value: (t) => t.realized_usd },
+      { header: "fee_eur", value: (t) => t.fee_eur ?? null },
       { header: "note", value: (t) => t.note },
     ]),
   );
@@ -420,6 +482,21 @@ function exportContributions(contributions: Contribution[]) {
       { header: "amount_eur", value: (c) => c.amount_eur },
       { header: "type", value: (c) => c.type },
       { header: "note", value: (c) => c.note },
+    ]),
+  );
+}
+
+function exportIncome(income: Income[]) {
+  downloadCsv(
+    `dividends-${stamp()}.csv`,
+    toCsv(income, [
+      { header: "date", value: (i) => i.date },
+      { header: "ticker", value: (i) => i.ticker },
+      { header: "gross_eur", value: (i) => i.gross_eur },
+      { header: "withholding_eur", value: (i) => i.withholding_eur },
+      { header: "net_eur", value: (i) => Number(i.gross_eur) - Number(i.withholding_eur ?? 0) },
+      { header: "account", value: (i) => i.account },
+      { header: "note", value: (i) => i.note },
     ]),
   );
 }

@@ -1,5 +1,5 @@
 import { findAssetByName, findPositionByTicker } from "./journal-ops";
-import type { Contribution, ManualAsset, Position, Snapshot, Trade } from "./types";
+import type { Contribution, Income, ManualAsset, Position, Snapshot, Trade } from "./types";
 
 /**
  * Undoing a Journal entry. Rows carry no explicit links, so the counterpart
@@ -19,6 +19,7 @@ export type UndoEffect =
   | { kind: "asset"; id: string; name: string; deltaEur: number }
   | { kind: "delete_trade"; id: string }
   | { kind: "delete_contribution"; id: string }
+  | { kind: "delete_income"; id: string }
   | { kind: "reverse_contribution"; of: Contribution };
 
 export interface UndoPlan {
@@ -34,12 +35,20 @@ interface Ctx {
   manualAssets: ManualAsset[];
   contributions: Contribution[];
   trades: Trade[];
+  income: Income[];
   snapshots: Snapshot[];
 }
 
 const eur = (n: number) =>
   new Intl.NumberFormat("es-ES", { style: "currency", currency: "EUR", maximumFractionDigits: 2 }).format(n);
 const num = (n: number) => Number(n.toFixed(8)).toString();
+
+/** Cash that moved for a trade: a buy pays the fee on top, a sell nets it. */
+function tradeCash(t: Trade): number | null {
+  if (t.amount_eur == null) return null;
+  const fee = Number(t.fee_eur ?? 0);
+  return t.shares > 0 ? Number(t.amount_eur) + fee : Number(t.amount_eur) - fee;
+}
 
 function tradeNote(t: Trade): string {
   return `${t.shares > 0 ? "compra" : "venta"} ${num(Math.abs(t.shares))} ${t.ticker}`;
@@ -48,7 +57,8 @@ function tradeNote(t: Trade): string {
 /** Contribution created together with an externally funded trade. */
 function findTradeContribution(t: Trade, contributions: Contribution[]): Contribution | undefined {
   const note = tradeNote(t).toLowerCase();
-  const amount = t.amount_eur != null ? (t.shares > 0 ? 1 : -1) * Number(t.amount_eur) : null;
+  const cash = tradeCash(t);
+  const amount = cash != null ? (t.shares > 0 ? 1 : -1) * cash : null;
   return contributions.find(
     (c) =>
       (c.note ?? "").toLowerCase() === note &&
@@ -116,7 +126,7 @@ export function planUndoTrade(t: Trade, ctx: Ctx): UndoPlan {
     );
   }
 
-  const amount = t.amount_eur != null ? Number(t.amount_eur) : null;
+  const amount = tradeCash(t);
   if (t.funding === "external") {
     const c = findTradeContribution(t, ctx.contributions);
     if (c) contributionEffect(c, ctx, plan);
@@ -160,5 +170,25 @@ export function planUndoContribution(c: Contribution, ctx: Ctx): UndoPlan {
     plan.warnings.push("No sé a qué cuenta fue este dinero: ajusta su saldo a mano si hace falta.");
   }
   contributionEffect(c, ctx, plan);
+  return plan;
+}
+
+export function planUndoIncome(i: Income, ctx: Ctx): UndoPlan {
+  const net = Number(i.gross_eur) - Number(i.withholding_eur ?? 0);
+  const plan: UndoPlan = {
+    title: `Deshacer dividendo de ${i.ticker} (${eur(net)})`,
+    effects: [],
+    lines: [],
+    warnings: [],
+  };
+  const a = i.account ? findAssetByName(ctx.manualAssets, i.account) : undefined;
+  if (a) {
+    plan.effects.push({ kind: "asset", id: a.id, name: a.name, deltaEur: -net });
+    plan.lines.push(`${a.name}: ${eur(Number(a.value_eur))} → ${eur(Number(a.value_eur) - net)}`);
+  } else {
+    plan.warnings.push(`La cuenta "${i.account ?? "?"}" ya no existe: ajusta su saldo a mano.`);
+  }
+  plan.effects.push({ kind: "delete_income", id: i.id });
+  plan.lines.push("Borrar el dividendo del historial");
   return plan;
 }

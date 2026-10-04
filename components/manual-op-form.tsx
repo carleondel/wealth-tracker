@@ -8,7 +8,7 @@ import type { JournalOp } from "@/lib/journal-ops";
 import { localDateIso } from "@/lib/format";
 import type { ManualAsset, Position } from "@/lib/types";
 
-type Kind = "buy" | "sell" | "deposit" | "withdraw";
+type Kind = "buy" | "sell" | "deposit" | "withdraw" | "dividend";
 
 /** Where the cash of a buy/sell comes from / goes to. */
 const FUNDING_EXTERNAL = "__external__";
@@ -30,6 +30,8 @@ export function ManualOpForm({ positions, manualAssets, usdEur, onAdd }: Props) 
   const [amountEur, setAmountEur] = useState("");
   const [isExternal, setIsExternal] = useState(false);
   const [funding, setFunding] = useState<string>(FUNDING_EXTERNAL);
+  const [feeEur, setFeeEur] = useState("");
+  const [withholdingEur, setWithholdingEur] = useState("");
   const [date, setDate] = useState(todayIso);
   const [err, setErr] = useState<string | null>(null);
 
@@ -49,6 +51,8 @@ export function ManualOpForm({ positions, manualAssets, usdEur, onAdd }: Props) 
     setPriceUsd("");
     setAssetName("");
     setAmountEur("");
+    setFeeEur("");
+    setWithholdingEur("");
     setIsExternal(false);
     setErr(null);
   }
@@ -57,6 +61,32 @@ export function ManualOpForm({ positions, manualAssets, usdEur, onAdd }: Props) 
     setErr(null);
     if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
       setErr("Fecha inválida.");
+      return;
+    }
+    if (kind === "dividend") {
+      const gross = Number(amountEur);
+      const wh = withholdingEur.trim() === "" ? 0 : Number(withholdingEur);
+      if (!ticker.trim() || !Number.isFinite(gross) || gross <= 0) {
+        setErr("Falta ticker o importe bruto válido.");
+        return;
+      }
+      if (!Number.isFinite(wh) || wh < 0 || wh >= gross) {
+        setErr("La retención tiene que ser menor que el bruto.");
+        return;
+      }
+      if (!assetName.trim()) {
+        setErr("Falta la cuenta donde entró el dinero.");
+        return;
+      }
+      onAdd({
+        type: "income",
+        ticker: ticker.trim().toUpperCase(),
+        gross_eur: gross,
+        withholding_eur: wh,
+        account: assetName.trim(),
+        date,
+      });
+      reset();
       return;
     }
     if (isPos) {
@@ -72,6 +102,13 @@ export function ManualOpForm({ positions, manualAssets, usdEur, onAdd }: Props) 
         setErr("Falta el importe en € (o precio USD para estimarlo).");
         return;
       }
+      const fee = feeEur.trim() === "" ? 0 : Number(feeEur);
+      if (!Number.isFinite(fee) || fee < 0) {
+        setErr("Comisión inválida.");
+        return;
+      }
+      // Cash that actually moves: a buy pays the fee on top, a sell nets it.
+      const cash = eur == null ? null : kind === "buy" ? eur + fee : eur - fee;
       onAdd({
         type: "adjust_position",
         ticker: t,
@@ -81,23 +118,24 @@ export function ManualOpForm({ positions, manualAssets, usdEur, onAdd }: Props) 
         amount_eur: funding === FUNDING_NONE ? null : eur,
         funding:
           funding === FUNDING_NONE ? null : funding === FUNDING_EXTERNAL ? "external" : funding,
+        fee_eur: fee > 0 ? fee : null,
       });
       // Counterpart: a buy consumes cash (or is new external money), a sell
       // produces cash (or leaves the portfolio). Keeps net worth and
       // market P&L neutral.
-      if (funding === FUNDING_EXTERNAL && eur != null) {
+      if (funding === FUNDING_EXTERNAL && cash != null) {
         onAdd({
           type: "contribute",
-          amount_eur: kind === "buy" ? eur : -eur,
+          amount_eur: kind === "buy" ? cash : -cash,
           contribution_type: "inversion",
           note: `${kind === "buy" ? "compra" : "venta"} ${s} ${t}`,
           date,
         });
-      } else if (funding !== FUNDING_NONE && eur != null) {
+      } else if (funding !== FUNDING_NONE && cash != null) {
         onAdd({
           type: "adjust_asset",
           name: funding,
-          delta_eur: kind === "buy" ? -eur : eur,
+          delta_eur: kind === "buy" ? -cash : cash,
           date,
         });
       }
@@ -149,8 +187,8 @@ export function ManualOpForm({ positions, manualAssets, usdEur, onAdd }: Props) 
         nada hasta que pulses Aplicar.
       </p>
 
-      <div className="mt-4 grid grid-cols-2 sm:grid-cols-4 gap-1.5">
-        {(["buy", "sell", "deposit", "withdraw"] as Kind[]).map((k) => (
+      <div className="mt-4 grid grid-cols-3 sm:grid-cols-5 gap-1.5">
+        {(["buy", "sell", "deposit", "withdraw", "dividend"] as Kind[]).map((k) => (
           <button
             key={k}
             onClick={() => {
@@ -169,7 +207,51 @@ export function ManualOpForm({ positions, manualAssets, usdEur, onAdd }: Props) 
       </div>
 
       <div className="mt-4">
-        {isPos ? (
+        {kind === "dividend" ? (
+          <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+            <Field label="Ticker">
+              <input
+                list="manual-ticker-list"
+                value={ticker}
+                onChange={(e) => setTicker(e.target.value)}
+                placeholder="KO"
+                className={inputClass}
+              />
+            </Field>
+            <Field label="Bruto €">
+              <input
+                type="number"
+                step="any"
+                min="0"
+                value={amountEur}
+                onChange={(e) => setAmountEur(e.target.value)}
+                placeholder="25"
+                className={inputClass}
+              />
+            </Field>
+            <Field label="Retención €">
+              <input
+                type="number"
+                step="any"
+                min="0"
+                value={withholdingEur}
+                onChange={(e) => setWithholdingEur(e.target.value)}
+                placeholder="0"
+                className={inputClass}
+              />
+            </Field>
+            <Field label="Cobrado en">
+              <input
+                list="manual-asset-list"
+                value={assetName}
+                onChange={(e) => setAssetName(e.target.value)}
+                placeholder="Cuenta"
+                className={inputClass}
+              />
+            </Field>
+            <div className="col-span-2 sm:col-span-1">{dateField}</div>
+          </div>
+        ) : isPos ? (
           <div className="grid grid-cols-1 sm:grid-cols-4 gap-2">
             <Field label="Ticker">
               <input
@@ -247,7 +329,8 @@ export function ManualOpForm({ positions, manualAssets, usdEur, onAdd }: Props) 
             Sin precio: solo se ajustan las shares. Con precio: se recalcula el
             coste medio ponderado.
           </p>
-          <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-2">
+          <div className="mt-3 grid grid-cols-2 sm:grid-cols-3 gap-2">
+            <div className="col-span-2 sm:col-span-1">
             <Field label={kind === "buy" ? "Pagado con" : "Ingresado en"}>
               <select
                 value={funding}
@@ -265,6 +348,7 @@ export function ManualOpForm({ positions, manualAssets, usdEur, onAdd }: Props) 
                 <option value={FUNDING_NONE}>Sin contrapartida</option>
               </select>
             </Field>
+            </div>
             {funding !== FUNDING_NONE ? (
               <Field label="Importe €">
                 <input
@@ -278,6 +362,17 @@ export function ManualOpForm({ positions, manualAssets, usdEur, onAdd }: Props) 
                 />
               </Field>
             ) : null}
+            <Field label="Comisión €">
+              <input
+                type="number"
+                step="any"
+                min="0"
+                value={feeEur}
+                onChange={(e) => setFeeEur(e.target.value)}
+                placeholder="0"
+                className={inputClass}
+              />
+            </Field>
           </div>
           <p className="mt-2 text-[11px] text-[var(--muted)]">
             {funding === FUNDING_NONE
@@ -289,7 +384,14 @@ export function ManualOpForm({ positions, manualAssets, usdEur, onAdd }: Props) 
         </>
       ) : null}
 
-      {!isPos ? (
+      {kind === "dividend" ? (
+        <p className="mt-3 text-[11px] text-[var(--muted)]">
+          Entra en la cuenta el bruto menos la retención y cuenta como rendimiento, no como
+          aportación.
+        </p>
+      ) : null}
+
+      {kind === "deposit" || kind === "withdraw" ? (
         <label className="mt-3 flex items-center gap-2 text-xs cursor-pointer">
           <input
             type="checkbox"
@@ -333,6 +435,8 @@ function kindLabel(k: Kind): string {
       return "Depósito";
     case "withdraw":
       return "Retirada";
+    case "dividend":
+      return "Dividendo";
   }
 }
 

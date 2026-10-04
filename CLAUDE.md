@@ -43,8 +43,11 @@ Tables (all rows gated by `owner_id = auth.uid()`):
   `speculation_cap_pct` (max % of invested capital in the speculative bucket; null =
   `POLICY.speculationCapPct`)
 - `trades` — one row per buy/sell applied from the Journal (signed shares, price_usd,
-  amount_eur, funding, realized_usd for sells, date). Append-only log; positions stay
-  the source of truth for current holdings.
+  amount_eur, funding, realized_usd for sells, fee_eur, date). Append-only log; positions
+  stay the source of truth for current holdings. `amount_eur` excludes the fee; the
+  cash counterpart includes it (buy: amount + fee, sell: amount − fee).
+- `income` — dividends (ticker, gross_eur, withholding_eur, account, date). Applying one
+  adds gross − withholding to the account; it counts as return, never as contribution.
 
 ## Auth flow
 1. User lands on `/` → `components/login-screen.tsx` asks for email.
@@ -134,6 +137,7 @@ Tables (all rows gated by `owner_id = auth.uid()`):
 - `components/manual-op-form.tsx` builds ops (buy, sell, deposit, withdraw) typed in `lib/journal-ops.ts`.
 - The `JournalTab` shows a checkbox list of ops; `applyJournalOps` in the
   dashboard executes the checked ones against Supabase (or local state in demo).
+- Ops: buy, sell (optional commission), deposit, withdraw, dividend (`income` op).
 - Buy/Sell ops carry a cash counterpart ("Pagado con"): a liquidity account
   (`adjust_asset`) or external money (`contribute`, negative for sells). Every
   applied `adjust_position` also inserts a `trades` row.
@@ -189,6 +193,7 @@ supabase/
     004_user_settings.sql
     005_trades.sql
     006_speculation_cap.sql
+    007_fees_income.sql
 ```
 
 ## Secrets + repo hygiene
