@@ -110,7 +110,10 @@ Tables (all rows gated by `owner_id = auth.uid()`):
 - Benchmark shows `getTimeWeightedReturn` (TWR): one snapshot per day
   (`lastSnapshotPerDay`), sub-period returns chained, contributions recorded
   between two snapshots neutralised at the start of that sub-period. The % is
-  independent of how much was contributed. Benchmarks come from `/api/benchmark` (Yahoo ^GSPC and
+  independent of how much was contributed. The €/$ toggle puts everything in
+  one currency: in € the indices are converted with ECB rates; in $ the
+  portfolio is converted with each snapshot's `usd_eur_rate` (flows at the rate
+  of the snapshot that first includes them). Benchmarks come from `/api/benchmark` (Yahoo ^GSPC and
   BTC-USD, CoinGecko fallback for BTC, Frankfurter USD/EUR series; 1h cache)
   and are fetched once when the tab mounts — this is the only network call
   outside UPDATE, and it never touches positions or snapshots.

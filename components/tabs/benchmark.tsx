@@ -14,7 +14,7 @@ import {
 } from "recharts";
 import { Card, CardTitle } from "@/components/ui/card";
 import { RangePills } from "@/components/ui/range-pills";
-import { fmtDate, fmtEur, fmtPct } from "@/lib/format";
+import { fmtDate, fmtEur, fmtPct, fmtUsd } from "@/lib/format";
 import {
   getTimeWeightedReturn,
   lastSnapshotPerDay,
@@ -71,8 +71,8 @@ export function BenchmarkTab({ snapshots, contributions }: Props) {
   }, [from]);
 
   const twr = useMemo(
-    () => getTimeWeightedReturn(snapshots, contributions, range),
-    [snapshots, contributions, range],
+    () => getTimeWeightedReturn(snapshots, contributions, range, new Date(), currency),
+    [snapshots, contributions, range, currency],
   );
 
   const data = useMemo(() => {
@@ -133,7 +133,11 @@ export function BenchmarkTab({ snapshots, contributions }: Props) {
               <button
                 key={c}
                 onClick={() => setCurrency(c)}
-                title={c === "EUR" ? "Benchmarks convertidos a € (ECB)" : "Benchmarks en $ nativo"}
+                title={
+                  c === "EUR"
+                    ? "Todo en €: índices convertidos con el tipo del BCE"
+                    : "Todo en $: tu cartera convertida con el tipo de cada snapshot"
+                }
                 className={`px-3 py-1.5 sm:px-2.5 sm:py-1 text-[10px] uppercase tracking-wider ${
                   c === "USD" ? "border-l border-[var(--border)]" : ""
                 } ${
@@ -168,12 +172,13 @@ export function BenchmarkTab({ snapshots, contributions }: Props) {
               </div>
               {"gap" in s && s.gap != null ? (
                 <div
-                  className={`mt-0.5 text-[10px] sm:text-xs tabular-nums whitespace-nowrap ${
+                  className={`mt-0.5 text-[10px] sm:text-xs tabular-nums leading-tight ${
                     s.gap >= 0 ? "text-[var(--accent)]" : "text-[var(--danger)]"
                   }`}
-                  title={`Mi cartera − ${s.label}, en puntos porcentuales`}
+                  title={`Rentabilidad de mi cartera menos la de ${s.label}`}
                 >
-                  tú {fmtPct(s.gap, 1).replace("%", " pp")}
+                  {s.gap >= 0 ? "le sacas" : "te saca"}{" "}
+                  <span className="whitespace-nowrap">{Math.abs(s.gap).toFixed(1)}%</span>
                 </div>
               ) : null}
             </div>
@@ -188,7 +193,7 @@ export function BenchmarkTab({ snapshots, contributions }: Props) {
                 {" "}· sin contar{" "}
                 <span className="tabular-nums whitespace-nowrap">
                   {twr.contributionsTotal >= 0 ? "+" : ""}
-                  {fmtEur(twr.contributionsTotal)}
+                  {currency === "USD" ? fmtUsd(twr.contributionsTotal, 0) : fmtEur(twr.contributionsTotal)}
                 </span>{" "}
                 de aportaciones
               </>
@@ -281,8 +286,14 @@ export function BenchmarkTab({ snapshots, contributions }: Props) {
             <li>
               <strong className="text-[var(--foreground)]">S&amp;P 500</strong> (índice ^GSPC) y{" "}
               <strong className="text-[var(--foreground)]">Bitcoin</strong> se comparan como si
-              hubieras comprado y mantenido desde el inicio del rango. En modo € se convierten
-              con el tipo USD/EUR diario del BCE, que es lo que vería un inversor en euros.
+              hubieras comprado y mantenido desde el inicio del rango.
+            </li>
+            <li>
+              <strong className="text-[var(--foreground)]">€ o $</strong>: todo se mide en la
+              misma moneda. En € los índices se convierten con el tipo USD/EUR diario del BCE
+              (lo que vería un inversor en euros); en $ es tu cartera la que se convierte, con
+              el tipo de cada snapshot. La diferencia entre modos es lo que se ha movido el
+              dólar frente al euro.
             </li>
             <li>
               Los benchmarks usan el cierre del día; la cartera, el último snapshot de cada
