@@ -23,6 +23,7 @@ import { JournalTab } from "@/components/tabs/journal";
 import { BenchmarkTab } from "@/components/tabs/benchmark";
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/lib/supabase";
+import { getSnapshotPriceErrors } from "@/lib/snapshot-validation";
 import { usePersistentState } from "@/lib/use-persistent-state";
 import { localDateIso } from "@/lib/format";
 import type { UndoPlan } from "@/lib/journal-undo";
@@ -247,6 +248,12 @@ export function Dashboard({ userId, userEmail, demoMode = false }: Props) {
       source: "LIVE" | "MANUAL",
     ): Promise<Snapshot | null> => {
       const mergedPrices: PriceMap = { ...prices, ...result.prices };
+      const errors = getSnapshotPriceErrors(positions, mergedPrices, result.usdEur);
+      if (errors.length > 0) {
+        setErr(`No se guardó la medición: ${errors.join("; ")}. Revisa los precios en el lápiz.`);
+        return null;
+      }
+      const nextBtcUsd = mergedPrices["BTC-USD"]?.price || result.btcUsd;
       const nextBreakdown = getCategoryBreakdown(
         positions,
         manualAssets,
@@ -262,12 +269,12 @@ export function Dashboard({ userId, userEmail, demoMode = false }: Props) {
           breakdown: nextBreakdown,
           prices: mergedPrices,
           usd_eur_rate: result.usdEur,
-          btc_price_usd: result.btcUsd,
+          btc_price_usd: nextBtcUsd,
           created_at: new Date().toISOString(),
         };
         setPrices(mergedPrices);
         setUsdEur(result.usdEur);
-        setBtcUsd(result.btcUsd);
+        setBtcUsd(nextBtcUsd);
         setFxSource(source);
         setBtcSource(source);
         setSnapshots((prev) => [localSnap, ...prev]);
@@ -282,7 +289,7 @@ export function Dashboard({ userId, userEmail, demoMode = false }: Props) {
           breakdown: nextBreakdown,
           prices: mergedPrices,
           usd_eur_rate: result.usdEur,
-          btc_price_usd: result.btcUsd,
+          btc_price_usd: nextBtcUsd,
         })
         .select()
         .single();
@@ -293,7 +300,7 @@ export function Dashboard({ userId, userEmail, demoMode = false }: Props) {
 
       setPrices(mergedPrices);
       setUsdEur(result.usdEur);
-      setBtcUsd(result.btcUsd);
+      setBtcUsd(nextBtcUsd);
       setFxSource(source);
       setBtcSource(source);
       setSnapshots((prev) => [data as Snapshot, ...prev]);
@@ -327,7 +334,7 @@ export function Dashboard({ userId, userEmail, demoMode = false }: Props) {
           `No prices returned${data.errors ? `: ${data.errors.join("; ")}` : ""}`,
         );
       }
-      await persistSnapshot(
+      const saved = await persistSnapshot(
         {
           usdEur: data.usdEur,
           btcUsd: data.btcUsd || data.prices["BTC-USD"]?.price || 0,
@@ -335,7 +342,7 @@ export function Dashboard({ userId, userEmail, demoMode = false }: Props) {
         },
         "LIVE",
       );
-      if (data.errors && data.errors.length > 0) {
+      if (saved && data.errors && data.errors.length > 0) {
         setErr(
           `Precios parciales: ${data.errors.length} ticker(s) fallaron — ${data.errors.join("; ")}`,
         );

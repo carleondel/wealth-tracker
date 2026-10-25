@@ -3,6 +3,7 @@ import { createClient } from "@supabase/supabase-js";
 import { fetchPrices } from "@/lib/prices-server";
 import { pushConfigured, sendTargetAlerts } from "@/lib/push-server";
 import { getCategoryBreakdown, getTotalEur } from "@/lib/calculations";
+import { getSnapshotPriceErrors } from "@/lib/snapshot-validation";
 import type { ManualAsset, Position, Snapshot } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -53,17 +54,16 @@ export async function GET(request: Request) {
 
   const tickers = Array.from(new Set(positions.map((x) => x.ticker)));
   const result = await fetchPrices(tickers);
-  if (Object.keys(result.prices).length === 0) {
-    return NextResponse.json(
-      { error: "no prices returned", errors: result.errors },
-      { status: 502 },
-    );
-  }
-
   const rows: Array<Omit<Snapshot, "id" | "created_at"> & { owner_id: string }> = [];
+  const skipped: Array<{ owner_id: string; errors: string[] }> = [];
   for (const owner of owners) {
     const myPositions = positions.filter((x) => x.owner_id === owner);
     const myAssets = assets.filter((x) => x.owner_id === owner);
+    const errors = getSnapshotPriceErrors(myPositions, result.prices, result.usdEur);
+    if (errors.length > 0) {
+      skipped.push({ owner_id: owner, errors });
+      continue;
+    }
     // Only the prices this user holds, so the snapshot stays self-contained.
     const myPrices = Object.fromEntries(
       myPositions
@@ -81,8 +81,10 @@ export async function GET(request: Request) {
     });
   }
 
-  const ins = await admin.from("snapshots").insert(rows);
-  if (ins.error) return NextResponse.json({ error: ins.error.message }, { status: 500 });
+  if (rows.length > 0) {
+    const ins = await admin.from("snapshots").insert(rows);
+    if (ins.error) return NextResponse.json({ error: ins.error.message }, { status: 500 });
+  }
 
   // Price-target alerts piggyback on the same price fetch. Never fails the cron.
   const push = pushConfigured()
@@ -98,6 +100,7 @@ export async function GET(request: Request) {
     saved: rows.length,
     tickers: tickers.length,
     errors: result.errors,
+    skipped,
     push,
-  });
+  }, { status: rows.length === 0 && skipped.length > 0 ? 502 : 200 });
 }
