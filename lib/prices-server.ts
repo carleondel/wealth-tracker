@@ -149,7 +149,8 @@ export async function fetchPrices(tickers: string[]): Promise<PricesWithErrors> 
     if (!prices[t]) errors.push(`${t}: missing in Finnhub`);
   }
 
-  let usdEur = 0.92;
+  // An unavailable FX rate must fail snapshot validation, never invent a value.
+  let usdEur = 0;
   if (fxRes.status === "fulfilled") {
     usdEur = fxRes.value;
   } else {

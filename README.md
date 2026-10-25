@@ -113,9 +113,10 @@ where magic links can't (iOS gives it separate storage from Safari).
 | **Roles** | `core`, `tactica`, `cobertura`, `complemento`, `caja`, `residual` — each with a one-line rule. `tactica` is the speculative pool. |
 | **Policy** | Liquidity target, monthly expenses and contribution amount live in `lib/policy.ts`; the speculation cap and category targets are per user. |
 
-Prices are **never** fetched on page load. If a feed fails, the working
-tickers still save a snapshot and the failures show in a banner; the pencil
-icon lets you enter prices by hand.
+Prices are **never** fetched on page load. If a feed fails, UPDATE can reuse
+previously saved quotes, but a snapshot is saved only if every held position
+has a valid price. Failures show in a banner; the pencil icon lets you enter
+prices by hand.
 
 ---
 
@@ -200,7 +201,10 @@ press **UPDATE**. To get a clean daily series for the history chart without
 opening the app, `vercel.json` schedules a [Vercel Cron](https://vercel.com/docs/cron-jobs)
 that calls `/api/cron/snapshot` every day at 22:00 UTC (after the US close).
 The route fetches prices once for every ticker held by any user and inserts
-one snapshot per user.
+one snapshot per user. If any held position lacks a valid fresh quote, that
+user's snapshot is skipped, with details in `skipped` in the response. Other
+users with complete quotes are still saved. If all users are skipped, the
+route returns HTTP 502 so the failed run is visible.
 
 1. In Vercel → Project → Settings → Environment Variables add
    `SUPABASE_SERVICE_ROLE_KEY` and `CRON_SECRET` (see table above). Redeploy.
